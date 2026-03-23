@@ -10,7 +10,7 @@ Construir una aplicación capaz de:
 - Visualizarlos mediante gráficos
 - Generar dashboards profesionales
 
-##Tecnologías
+## Tecnologías
 
 - Python
 - PostgreSQL
