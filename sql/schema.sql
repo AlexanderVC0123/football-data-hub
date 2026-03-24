@@ -1,4 +1,4 @@
-CREATE TABLE competitions (
+CREATE TABLE IF NOT EXISTS competitions (
     id SERIAL PRIMARY KEY,
     api_id INT UNIQUE NOT NULL,
     name VARCHAR(100) NOT NULL,
@@ -9,7 +9,7 @@ CREATE TABLE competitions (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE teams (
+CREATE TABLE IF NOT EXISTS teams (
     id SERIAL PRIMARY KEY,
     api_id INT UNIQUE NOT NULL, 
     name VARCHAR(100) NOT NULL,
@@ -24,7 +24,7 @@ CREATE TABLE teams (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE seasons(
+CREATE TABLE IF NOT EXISTS seasons(
     id SERIAL PRIMARY KEY,
     api_id INT UNIQUE,
     competition_id INT NOT NULL,
@@ -37,11 +37,11 @@ CREATE TABLE seasons(
     CONSTRAINT fk_season_winner FOREIGN KEY (winner_team_id) REFERENCES teams(id) ON DELETE SET NULL
 );
 
-CREATE TABLE matches (
+CREATE TABLE IF NOT EXISTS matches (
     id SERIAL PRIMARY KEY, 
     api_id INT UNIQUE NOT NULL,
     competition_id INT NOT NULL,
-    sesion_id INT NOT NULL,
+    season_id INT NOT NULL,
     matchday INT,
     utc_date TIMESTAMP NOT NULL,
     status VARCHAR(30),
@@ -61,7 +61,7 @@ CREATE TABLE matches (
     CONSTRAINT chk_different_teams CHECK (home_team_id <> away_team_id)
 );
 
-CREATE TABLE standings (
+CREATE TABLE IF NOT EXISTS standings (
     id SERIAL PRIMARY KEY,
     competition_id INT NOT NULL,
     season_id INT NOT NULL,
