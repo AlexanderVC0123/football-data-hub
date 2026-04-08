@@ -179,3 +179,58 @@ def insert_standing_row(standing_row: dict, season_api_id: dict, competition_api
     finally:
         cursor.close()
         conn.close()
+
+def insert_match(match_data: dict):
+    "Inserta un partido en la base de datos"
+
+    competition_api_id = match_data.get("competition", {}).get("id")
+    season_api_id = match_data.get("season", {}).get("id")
+    home_team_api_id = match_data.get("homeTeam", {}).get("id")
+    away_team_api_id = match_data.get("awayTeam", {}).get("id")
+
+    competition_id = get_competition_db_id_by_api_id(competition_api_id)
+    season_id = get_season_db_id_by_api_id(season_api_id)
+    home_team_id = get_team_db_id_by_api_id(home_team_api_id)
+    away_team_id = get_team_db_id_by_api_id(away_team_api_id)
+
+    if not competition_id or not season_id or not home_team_id or not away_team_id:
+        print(f"No se puede ingresar el partido api_id={match_data.get('id')}")
+        return
+    
+    score = match_data.get("score",{})
+    full_time = score.get("fullTime", {})
+
+    query = """
+        INSERT INTO matches (
+            api_id, competition_id, season_id, matchday, utc_date, status, home_team_id, away_team_id,
+            home_score, away_score, winner, stage, group_name, last_updated
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT (api_id) DO NOTHING
+            """
+    
+    values = (
+        match_data.get("id"),
+        competition_id,
+        season_id,
+        match_data.get("matchday"),
+        match_data.get("utc_date"),
+        match_data.get("status"),
+        home_team_id,
+        away_team_id,
+        full_time.get("home"),
+        full_time.get("away"),
+        match_data.get("winner"),
+        match_data.get("stage"),
+        match_data.get("group_name"),
+        match_data.get("last_updated")
+    )
+
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    try:
+        cursor.execute(query, values)
+        connection.commit()
+    finally:
+        cursor.close()
+        connection.close()

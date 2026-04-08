@@ -35,7 +35,7 @@ class FootballAPIClient:
     def get_standing_by_competition(self, competition_code:str):
         """Obtiene la clasificación actual de una competición"""
 
-        url = f"{self.base_url}/competitions/{competition_code}/standing"
+        url = f"{self.base_url}/competitions/{competition_code}/standings"
         response = requests.get(url, headers=self.headers, timeout=30)
         response.raise_for_status()
         return response.json()
