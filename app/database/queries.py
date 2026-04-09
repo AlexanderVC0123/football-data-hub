@@ -57,14 +57,14 @@ def insert_team(team_data: dict):
         cursor.close()
         connection.close()
 
-def get_competition_db_id_by_api_id(api_id: int):
+def get_competition_db_id_by_api_id(code: str):
     query = "SELECT id FROM competitions WHERE api_id = %s"
 
     connection = get_connection()
     cursor = connection.cursor()
 
     try:
-        cursor.execute(query, (api_id))
+        cursor.execute(query, (code,))
         result = cursor.fetchone()
         return result[0] if result else None
     finally:
@@ -78,7 +78,7 @@ def get_team_db_id_by_api_id(api_id: int):
     cursor = connection.cursor()
 
     try:
-        cursor.execute(query, (api_id))
+        cursor.execute(query, (api_id,))
         result = cursor.fetchone()
         return result[0] if result else None
     finally:
@@ -92,8 +92,8 @@ def get_season_db_id_by_api_id(api_id: int):
     cursor = connection.cursor()
 
     try:
-        cursor.execute(query,(api_id))
-        result = cursor.fetchone
+        cursor.execute(query,(api_id,))
+        result = cursor.fetchone()
         return result[0] if result else None
     finally:
         cursor.close()
@@ -120,7 +120,7 @@ def insert_season(season_data: dict, competition_api_id: int):
         competition_id,
         season_data.get("startDate"),
         season_data.get("endDate"),
-        season_data.get("current_matchday"),
+        season_data.get("currentMatchday"),
         winner_team_id
     )
 
@@ -134,16 +134,21 @@ def insert_season(season_data: dict, competition_api_id: int):
         cursor.close()
         conn.close()
 
-def insert_standing_row(standing_row: dict, season_api_id: dict, competition_api_id: int):
+def insert_standing_row(standing_row: dict, competition_code: str, season_api_id: dict):
     "Inserta una fila de clasificación"
-    competition_id = get_competition_db_id_by_api_id(competition_api_id)
+    competition_id = get_competition_db_id_by_api_id(competition_code)
     season_id = get_season_db_id_by_api_id(season_api_id)
 
     team_api_id = standing_row.get("team",{}).get("id")
     team_id = get_team_db_id_by_api_id(team_api_id)
 
     if not competition_id or not season_id or not team_id:
-        print(f"No se pudo insertar standing para team_api_id={team_api_id}")
+        """print(f"No se pudo insertar standing para team_api_id={team_api_id}")"""
+        print("⚠️ No se pudo insertar standing")
+        print(f"competition_api_id={competition_code} -> competition_id={competition_id}")
+        print(f"season_api_id={season_api_id} -> season_id={season_id}")
+        print(f"team_api_id={team_api_id} -> team_id={team_id}")
+        print(f"team_name={standing_row.get('team', {}).get('name')}")
         return
     
     query="""
@@ -159,14 +164,14 @@ def insert_standing_row(standing_row: dict, season_api_id: dict, competition_api
         season_id,
         team_id,
         standing_row.get("position"),
-        standing_row.get("played_games"),
+        standing_row.get("playedGames"),
         standing_row.get("won"),
         standing_row.get("draw"),
         standing_row.get("lost"),
         standing_row.get("points"),
-        standing_row.get("goals_for"),
-        standing_row.get("goals_against"),
-        standing_row.get("goal_difference"),
+        standing_row.get("goalsFor"),
+        standing_row.get("goalsAgainst"),
+        standing_row.get("goalDifference"),
         standing_row.get("form")
     )
 
@@ -213,7 +218,7 @@ def insert_match(match_data: dict):
         competition_id,
         season_id,
         match_data.get("matchday"),
-        match_data.get("utc_date"),
+        match_data.get("utcDate"),
         match_data.get("status"),
         home_team_id,
         away_team_id,
