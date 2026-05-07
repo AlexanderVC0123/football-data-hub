@@ -37,7 +37,7 @@ def insert_team(team_data: dict):
     values = (
         team_data.get("id"),
         team_data.get("name"),
-        team_data.get("short_name"),
+        team_data.get("shortName"),
         team_data.get("tla"),
         team_data.get("founded"),
         team_data.get("venue"),
@@ -156,7 +156,20 @@ def insert_standing_row(standing_row: dict, competition_code: str, season_api_id
             competition_id, season_id, team_id, position, played_games, won, draw, lost, points, goals_for,
             goals_against, goal_difference, form
         )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT (season_id, team_id) DO NOTHING
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT (season_id, team_id) DO UPDATE
+        SET
+            competition_id = EXCLUDED.competition_id,
+            position = EXCLUDED.position,
+            played_games = EXCLUDED.played_games,
+            won = EXCLUDED.won,
+            draw = EXCLUDED.draw,
+            lost = EXCLUDED.lost,
+            points = EXCLUDED.points,
+            goals_for = EXCLUDED.goals_for,
+            goals_against = EXCLUDED.goals_against,
+            goal_difference = EXCLUDED.goal_difference,
+            form = EXCLUDED.form,
+            updated_at = CURRENT_TIMESTAMP
         """
     
     values = (
@@ -226,8 +239,8 @@ def insert_match(match_data: dict):
         full_time.get("away"),
         match_data.get("winner"),
         match_data.get("stage"),
-        match_data.get("group_name"),
-        match_data.get("last_updated")
+        match_data.get("group"),
+        match_data.get("lastUpdated")
     )
 
     connection = get_connection()

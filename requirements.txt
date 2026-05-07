@@ -5,3 +5,6 @@ sqlalchemy
 python-dotenv
 matplotlib
 streamlit
+customtkinter
+pytest
+plotly

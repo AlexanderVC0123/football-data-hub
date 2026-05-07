@@ -1,5 +1,5 @@
 # Football Data Hub
-Proyecto de análisis de datos de futbol utilizandoPython, PostgreSQL y visualización de datos.
+Proyecto de análisis de datos de futbol utilizando Python, PostgreSQL y visualización de datos.
 
 ## Objetivo
 
@@ -16,7 +16,7 @@ Construir una aplicación capaz de:
 - PostgreSQL
 - Pandas
 - SQLAlchemy
-- Matplotlib
+- Potly
 - Streamlit
 - Power BI
 

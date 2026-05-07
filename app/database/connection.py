@@ -1,63 +1,87 @@
 import os
-from dotenv import load_dotenv
-import psycopg2
+from pathlib import Path
 
-load_dotenv()
+import psycopg2
+from dotenv import load_dotenv
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+ENV_PATH = PROJECT_ROOT / ".env"
+SCHEMA_PATH = PROJECT_ROOT / "sql" / "schema.sql"
+
+load_dotenv(ENV_PATH)
+
+REQUIRED_DB_ENV_VARS = ("DB_NAME", "DB_USER", "DB_PASSWORD", "DB_HOST", "DB_PORT")
+
+
+def get_required_env(var_name: str) -> str:
+    value = os.getenv(var_name)
+    if not value:
+        raise ValueError(f"Falta la variable de entorno requerida: {var_name}")
+    return value
+
 
 def get_connection():
-    """Establece una conexión a la base de datos PostgreSQL utilizando las variables de entorno."""
+    """Establece una conexion a PostgreSQL usando variables de entorno."""
 
-    connection = psycopg2.connect(
-        dbname=os.getenv("DB_NAME"),
-        user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASSWORD"),
-        host=os.getenv("DB_HOST"),
-        port=os.getenv("DB_PORT")
+    missing_vars = [var_name for var_name in REQUIRED_DB_ENV_VARS if not os.getenv(var_name)]
+    if missing_vars:
+        raise ValueError(
+            "Faltan variables de entorno requeridas para PostgreSQL: "
+            + ", ".join(missing_vars)
+        )
+
+    return psycopg2.connect(
+        dbname=get_required_env("DB_NAME"),
+        user=get_required_env("DB_USER"),
+        password=get_required_env("DB_PASSWORD"),
+        host=get_required_env("DB_HOST"),
+        port=get_required_env("DB_PORT"),
     )
-    return connection
+
 
 def test_connection():
-    """Prueba la conexión a la base de datos y devuelve un mensaje de éxito o error."""
+    """Prueba la conexion a la base de datos e imprime el resultado."""
 
     try:
         connection = get_connection()
-        cursor = connection.cursor()
+        try:
+            cursor = connection.cursor()
+            try:
+                cursor.execute("SELECT version();")
+                version = cursor.fetchone()
 
-        cursor.execute("SELECT version();")
-        version = cursor.fetchone()
+                print(f"Conexion exitosa a la base de datos. Version: {version[0]}")
+            finally:
+                cursor.close()
+        finally:
+            connection.close()
 
-        print(f"Conexión exitosa a la base de datos. Versión: {version[0]}")
-        print("Version del servidor: ", version[0])
-
-        cursor.close()
-        connection.close()
-    
     except Exception as error:
-        print("Error al conectar con PostgresSQL")
+        print("Error al conectar con PostgreSQL")
         print("Detalle del error: ", error)
 
+
 def execute_schema():
-    "Lee el archivo schema.sql y ejecuta su contenido para crear las tablas en la base de datos."
+    """Lee schema.sql y ejecuta su contenido para crear las tablas."""
 
     try:
         connection = get_connection()
-        cursor = connection.cursor()
+        try:
+            cursor = connection.cursor()
+            try:
+                with SCHEMA_PATH.open("r", encoding="utf-8") as sql_file:
+                    sql_script = sql_file.read()
 
-        #Abrimos el archivo sql en modo lectura
-        with open("sql/schema.sql", "r", encoding="utf-8") as sql_file:
-            sql_script = sql_file.read()
+                cursor.execute(sql_script)
+                connection.commit()
 
-        #Ejecutamos el script sql
-        cursor.execute(sql_script)
+                print("Tablas creadas correctamente desde el archivo schema.sql")
+            finally:
+                cursor.close()
+        finally:
+            connection.close()
 
-        #Confirmamos los cambios en la base de datos
-        connection.commit()
-
-        print("Tablas creadas correctamente desde el archivo schema.sql")
-
-        cursor.close()
-        connection.close()
-    
     except Exception as error:
         print("Error al ejecutar schema.sql")
         print("Detalle del error: ", error)
