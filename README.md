@@ -1,34 +1,211 @@
 # Football Data Hub
-Proyecto de análisis de datos de futbol utilizando Python, PostgreSQL y visualización de datos.
 
-## Objetivo
+Football Data Hub es una plataforma de analisis futbolistico con app web y app de escritorio. El proyecto consume datos desde una API externa, los guarda en PostgreSQL y permite explorar clasificaciones, partidos, equipos, comparativas y predicciones iniciales basadas en un modelo Poisson simple.
 
-Construir una aplicación capaz de:
-- Consumir datos desde una API de fútbol
-- Guardarlos en PostgreSQL
-- Analizarlos mediante SQL Python
-- Visualizarlos mediante gráficos
-- Generar dashboards profesionales
+## Estado Del Proyecto
 
-## Tecnologías
+Fase actual: MVP tecnico avanzado.
+
+Incluye:
+- sincronizacion desde football-data.org;
+- PostgreSQL como base central;
+- web con Streamlit;
+- app desktop con CustomTkinter;
+- filtros por competicion;
+- historico de sincronizaciones;
+- relacion competicion-equipo-temporada;
+- prediccion de partidos con Poisson;
+- tests automaticos con pytest.
+
+## Tecnologias
 
 - Python
 - PostgreSQL
 - Pandas
-- SQLAlchemy
-- Potly
+- psycopg2
 - Streamlit
-- Power BI
+- CustomTkinter
+- Plotly
+- Pytest
+- python-dotenv
 
-## Estructura del proyecto
+## Estructura
 
-app/ → lógica principal
-database/ → conexión y consultas  
-api/ → consumo de APIs  
-visualization/ → gráficos  
-sql/ → scripts SQL  
-data/ → datos temporales
+```text
+app/
+  analytics/        Motor de analisis y prediccion
+  api/              Cliente de football-data.org
+  database/         Conexion, queries y lecturas
+  services/         Sincronizacion API -> PostgreSQL
 
-## Estado del proyecto
+desktop_app/        Aplicacion de escritorio
+streamlit_app/      Dashboard web
+sql/                Esquema y consultas SQL
+tests/              Tests automaticos
+run.py              Entrada para sincronizar datos
+```
 
-En desarrollo - Fase 1: Configuración inicial
+## Configuracion
+
+1. Crea un entorno virtual:
+
+```bash
+python -m venv venv
+```
+
+2. Activalo en Windows:
+
+```bash
+venv\Scripts\activate
+```
+
+3. Instala dependencias:
+
+```bash
+pip install -r requirements.txt
+```
+
+4. Crea tu archivo `.env` a partir de `.env.example`:
+
+```bash
+copy .env.example .env
+```
+
+5. Completa tus variables:
+
+```env
+APP_ENV=development
+ENABLE_MANUAL_SYNC=true
+
+DB_NAME=football_data_hub
+DB_USER=postgres
+DB_PASSWORD=your_password
+DB_HOST=localhost
+DB_PORT=5432
+
+FOOTBALL_API_URL=https://api.football-data.org/v4
+FOOTBALL_API_KEY=your_api_key
+```
+
+En produccion se recomienda:
+
+```env
+APP_ENV=production
+ENABLE_MANUAL_SYNC=false
+```
+
+## Base De Datos
+
+El esquema se crea automaticamente al arrancar la web, la app desktop o la sincronizacion.
+
+Tambien puedes ejecutar:
+
+```bash
+venv\Scripts\python.exe run.py --competition PD
+```
+
+Las tablas principales son:
+- `competitions`
+- `teams`
+- `seasons`
+- `competition_teams`
+- `standings`
+- `matches`
+- `sync_runs`
+
+## Sincronizacion De Datos
+
+Sincronizar una competicion:
+
+```bash
+venv\Scripts\python.exe run.py --competition PD
+```
+
+Sincronizar varias:
+
+```bash
+venv\Scripts\python.exe run.py --competitions PD PL SA
+```
+
+Sincronizar las competiciones por defecto:
+
+```bash
+venv\Scripts\python.exe run.py --all
+```
+
+Competiciones por defecto:
+
+```text
+PD, PL, SA, BL1, FL1
+```
+
+Cada sincronizacion queda registrada en `sync_runs` con estado `SUCCESS` o `FAILED`.
+
+## Ejecutar La Web
+
+```bash
+venv\Scripts\python.exe -m streamlit run streamlit_app/dashboard.py
+```
+
+URL local:
+
+```text
+http://localhost:8501
+```
+
+## Ejecutar La App Desktop
+
+```bash
+venv\Scripts\python.exe desktop_app/main.py
+```
+
+## Tests
+
+```bash
+venv\Scripts\python.exe -m pytest
+```
+
+## Despliegue Web
+
+Para prototipo rapido:
+- Streamlit Community Cloud;
+- Render;
+- Railway;
+- Hugging Face Spaces.
+
+Base de datos recomendada:
+- Supabase PostgreSQL;
+- Neon;
+- Railway PostgreSQL;
+- Render PostgreSQL.
+
+En despliegue, la web deberia conectarse a una base PostgreSQL remota y no mostrar controles manuales de sincronizacion:
+
+```env
+APP_ENV=production
+ENABLE_MANUAL_SYNC=false
+```
+
+La sincronizacion de datos puede ejecutarse con:
+- GitHub Actions programado;
+- cron en servidor;
+- tarea programada de Windows;
+- worker separado.
+
+## Desktop Instalable
+
+Para prototipo se puede empaquetar con PyInstaller:
+
+```bash
+pyinstaller --onefile --windowed desktop_app/main.py
+```
+
+Despues se puede crear un instalador con Inno Setup.
+
+## Roadmap
+
+- Mejorar la UI web con vistas por equipo y partido.
+- Preparar despliegue con base de datos remota.
+- Crear workflow automatico de sincronizacion.
+- Empaquetar desktop como `.exe`.
+- Mejorar prediccion con local/visitante, forma reciente avanzada y mercados como over/under o ambos marcan.

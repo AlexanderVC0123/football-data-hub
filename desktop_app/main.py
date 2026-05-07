@@ -7,8 +7,13 @@ import customtkinter as ctk
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from app.analytics.match_analysis import compare_teams, estimate_match_probabilities
+from app.config import manual_sync_enabled
+from app.database.connection import execute_schema
+from app.services.import_service import sync_competition_data
 from utils_desktop.db_utils import (
     load_combined_matches,
+    load_competitions,
+    load_last_sync_run,
     load_matches_by_team,
     load_standings,
     load_teams,
@@ -26,10 +31,22 @@ class MainApp(ctk.CTk):
         self.title("Football Data Hub")
         self.geometry("1280x760")
         self.minsize(1100, 680)
+        self.configure(fg_color="#0f172a")
 
-        self.standings_df = load_standings()
-        self.teams_df = load_teams()
-        self.teams_list = self.teams_df["name"].tolist()
+        # Asegura tablas nuevas como sync_runs antes de cargar datos en la app.
+        execute_schema()
+        self.configure_table_style()
+
+        self.competitions_df = load_competitions()
+        self.competition_options = {
+            f"{row['name']} ({row['code']})": {"id": int(row["id"]), "code": row["code"]}
+            for _, row in self.competitions_df.iterrows()
+        }
+        self.selected_competition = ctk.StringVar(
+            value=next(iter(self.competition_options), "")
+        )
+        self.selected_competition_id = None
+        self.refresh_competition_data()
 
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
@@ -42,6 +59,66 @@ class MainApp(ctk.CTk):
         self.main_frame.grid(row=0, column=1, sticky="nsew")
 
         self.create_sidebar_buttons()
+        self.show_dashboard()
+
+    def configure_table_style(self):
+        style = ttk.Style()
+        style.theme_use("clam")
+        style.configure(
+            "Treeview",
+            background="#111827",
+            foreground="#e5e7eb",
+            fieldbackground="#111827",
+            bordercolor="#243044",
+            rowheight=30,
+        )
+        style.configure(
+            "Treeview.Heading",
+            background="#172033",
+            foreground="#d1d5db",
+            relief="flat",
+            font=("Segoe UI", 10, "bold"),
+        )
+        style.map(
+            "Treeview",
+            background=[("selected", "#1f7a4d")],
+            foreground=[("selected", "#ffffff")],
+        )
+
+    def refresh_competition_data(self):
+        self.selected_competition_id = self.competition_options.get(
+            self.selected_competition.get(), {}
+        ).get("id")
+        self.selected_competition_code = self.competition_options.get(
+            self.selected_competition.get(), {}
+        ).get("code")
+        self.standings_df = load_standings(self.selected_competition_id)
+        self.teams_df = load_teams(self.selected_competition_id)
+        self.teams_list = self.teams_df["name"].tolist()
+        self.last_sync_text = self.get_last_sync_text()
+
+    def get_last_sync_text(self):
+        if not self.selected_competition_code:
+            return "Ultima actualizacion: sin competicion"
+
+        sync_df = load_last_sync_run(self.selected_competition_code)
+        if sync_df.empty:
+            return "Ultima actualizacion: sin registros"
+
+        last_sync = sync_df.iloc[0]
+        status = "correcta" if last_sync["status"] == "SUCCESS" else "fallida"
+        return f"Ultima actualizacion: {last_sync['finished_at']} ({status})"
+
+    def sync_selected_competition(self):
+        if not self.selected_competition_code:
+            return
+
+        # Esta accion llama a la API y despues recarga los DataFrames que usa la
+        # interfaz. Las inserciones son upserts, asi que tambien corrigen datos ya existentes.
+        sync_competition_data(self.selected_competition_code)
+        self.refresh_competition_data()
+        if hasattr(self, "last_sync_label"):
+            self.last_sync_label.configure(text=self.last_sync_text)
         self.show_dashboard()
 
     def create_sidebar_buttons(self):
@@ -60,6 +137,38 @@ class MainApp(ctk.CTk):
         )
         subtitle.pack(pady=(0, 24))
 
+        if self.competition_options:
+            competition_selector = ctk.CTkOptionMenu(
+                self.sidebar,
+                values=list(self.competition_options.keys()),
+                variable=self.selected_competition,
+                command=self.on_competition_change,
+                width=188,
+            )
+            competition_selector.pack(fill="x", pady=(0, 8), padx=16)
+
+            self.last_sync_label = ctk.CTkLabel(
+                self.sidebar,
+                text=self.last_sync_text,
+                font=ctk.CTkFont(size=11),
+                text_color="#9ca3af",
+                wraplength=180,
+                justify="left",
+            )
+            self.last_sync_label.pack(fill="x", pady=(0, 12), padx=16)
+
+            if manual_sync_enabled():
+                sync_button = ctk.CTkButton(
+                    self.sidebar,
+                    text="Actualizar API",
+                    command=self.sync_selected_competition,
+                    height=34,
+                    corner_radius=6,
+                    fg_color="#1f7a4d",
+                    hover_color="#16613c",
+                )
+                sync_button.pack(fill="x", pady=(0, 18), padx=16)
+
         buttons = [
             ("Dashboard", self.show_dashboard),
             ("Clasificacion", self.show_standings),
@@ -76,6 +185,12 @@ class MainApp(ctk.CTk):
                 corner_radius=6,
             )
             button.pack(fill="x", pady=7, padx=16)
+
+    def on_competition_change(self, _selected_value=None):
+        self.refresh_competition_data()
+        if hasattr(self, "last_sync_label"):
+            self.last_sync_label.configure(text=self.last_sync_text)
+        self.show_dashboard()
 
     def clear_main_frame(self):
         for widget in self.main_frame.winfo_children():
@@ -102,6 +217,23 @@ class MainApp(ctk.CTk):
                 anchor="w",
             )
             caption.pack(fill="x", pady=(4, 0))
+
+    def show_empty_state(self, title: str, body: str):
+        container = ctk.CTkFrame(self.main_frame, corner_radius=8)
+        container.pack(fill="x", padx=24, pady=24)
+        ctk.CTkLabel(
+            container,
+            text=title,
+            font=ctk.CTkFont(size=20, weight="bold"),
+            anchor="w",
+        ).pack(fill="x", padx=22, pady=(20, 4))
+        ctk.CTkLabel(
+            container,
+            text=body,
+            text_color="#9ca3af",
+            anchor="w",
+            wraplength=760,
+        ).pack(fill="x", padx=22, pady=(0, 20))
 
     def create_table(self, parent, columns: tuple[str, ...], rows: list[tuple], height: int = 16):
         frame = ctk.CTkFrame(parent)
@@ -130,6 +262,13 @@ class MainApp(ctk.CTk):
             "Vista general de datos cargados y estado actual del proyecto.",
         )
 
+        if self.standings_df.empty:
+            self.show_empty_state(
+                "Datos en preparacion",
+                "La competicion seleccionada todavia no tiene datos analiticos cargados. Cuando termine la sincronizacion, este panel se completara automaticamente.",
+            )
+            return
+
         metrics_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
         metrics_frame.pack(fill="x", padx=24, pady=12)
 
@@ -150,7 +289,25 @@ class MainApp(ctk.CTk):
             ctk.CTkLabel(card, text=label, text_color="#9ca3af").pack(pady=(16, 4))
             ctk.CTkLabel(card, text=str(value), font=ctk.CTkFont(size=28, weight="bold")).pack(pady=(0, 16))
 
-        top_df = self.standings_df.head(8)
+        summary_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
+        summary_frame.pack(fill="both", expand=True)
+        summary_frame.grid_columnconfigure(0, weight=2)
+        summary_frame.grid_columnconfigure(1, weight=1)
+        summary_frame.grid_columnconfigure(2, weight=1)
+
+        table_area = ctk.CTkFrame(summary_frame, fg_color="transparent")
+        table_area.grid(row=0, column=0, sticky="nsew")
+        attack_area = ctk.CTkFrame(summary_frame, fg_color="transparent")
+        attack_area.grid(row=0, column=1, sticky="nsew")
+        defense_area = ctk.CTkFrame(summary_frame, fg_color="transparent")
+        defense_area.grid(row=0, column=2, sticky="nsew")
+
+        ctk.CTkLabel(
+            table_area,
+            text="Clasificacion completa",
+            font=ctk.CTkFont(size=16, weight="bold"),
+            anchor="w",
+        ).pack(fill="x", padx=24, pady=(12, 0))
         rows = [
             (
                 row["position"],
@@ -160,18 +317,59 @@ class MainApp(ctk.CTk):
                 row["goals_against"],
                 row["goal_difference"],
             )
-            for _, row in top_df.iterrows()
+            for _, row in self.standings_df.iterrows()
         ]
         self.create_table(
-            self.main_frame,
+            table_area,
             ("Posicion", "Equipo", "Puntos", "GF", "GC", "DG"),
             rows,
-            height=8,
+            height=16,
+        )
+
+        ctk.CTkLabel(
+            attack_area,
+            text="Mejores ataques",
+            font=ctk.CTkFont(size=16, weight="bold"),
+            anchor="w",
+        ).pack(fill="x", padx=24, pady=(12, 0))
+        attack_rows = [
+            (row["team"], row["goals_for"])
+            for _, row in self.standings_df.sort_values("goals_for", ascending=False).head(10).iterrows()
+        ]
+        self.create_table(
+            attack_area,
+            ("Equipo", "GF"),
+            attack_rows,
+            height=10,
+        )
+
+        ctk.CTkLabel(
+            defense_area,
+            text="Mejores defensas",
+            font=ctk.CTkFont(size=16, weight="bold"),
+            anchor="w",
+        ).pack(fill="x", padx=24, pady=(12, 0))
+        defense_rows = [
+            (row["team"], row["goals_against"])
+            for _, row in self.standings_df.sort_values("goals_against", ascending=True).head(10).iterrows()
+        ]
+        self.create_table(
+            defense_area,
+            ("Equipo", "GC"),
+            defense_rows,
+            height=10,
         )
 
     def show_standings(self):
         self.clear_main_frame()
         self.add_title("Clasificacion", "Tabla actual ordenada por posicion.")
+
+        if self.standings_df.empty:
+            self.show_empty_state(
+                "Clasificacion no disponible",
+                "No hay tabla de posiciones para esta competicion. Se mostrara aqui en cuanto exista una sincronizacion correcta.",
+            )
+            return
 
         rows = [
             (
@@ -199,6 +397,13 @@ class MainApp(ctk.CTk):
         self.clear_main_frame()
         self.add_title("Partidos", "Consulta los partidos registrados de un equipo.")
 
+        if not self.teams_list:
+            self.show_empty_state(
+                "Equipos no disponibles",
+                "Todavia no hay equipos asociados a esta competicion. Revisa el estado de sincronizacion o espera al proximo proceso automatico.",
+            )
+            return
+
         controls = ctk.CTkFrame(self.main_frame, fg_color="transparent")
         controls.pack(fill="x", padx=24, pady=8)
 
@@ -207,7 +412,7 @@ class MainApp(ctk.CTk):
             controls,
             values=self.teams_list,
             variable=selected_team,
-            width=280,
+            width=380,
         )
         selector.pack(side="left", padx=(0, 12))
 
@@ -218,7 +423,10 @@ class MainApp(ctk.CTk):
             for widget in table_container.winfo_children():
                 widget.destroy()
 
-            matches_df = load_matches_by_team(selected_team.get())
+            matches_df = load_matches_by_team(
+                selected_team.get(),
+                competition_id=self.selected_competition_id,
+            )
             rows = [
                 (
                     row["matchday"],
@@ -248,7 +456,10 @@ class MainApp(ctk.CTk):
         )
 
         if len(self.teams_list) < 2:
-            ctk.CTkLabel(self.main_frame, text="No hay suficientes equipos para comparar.").pack(pady=24)
+            self.show_empty_state(
+                "Prediccion no disponible",
+                "Se necesitan al menos dos equipos asociados a la competicion para calcular un partido.",
+            )
             return
 
         controls = ctk.CTkFrame(self.main_frame, fg_color="transparent")
@@ -258,9 +469,9 @@ class MainApp(ctk.CTk):
         away_team = ctk.StringVar(value=self.teams_list[1])
 
         ctk.CTkLabel(controls, text="Local").pack(side="left", padx=(0, 8))
-        ctk.CTkOptionMenu(controls, values=self.teams_list, variable=home_team, width=260).pack(side="left", padx=(0, 18))
+        ctk.CTkOptionMenu(controls, values=self.teams_list, variable=home_team, width=320).pack(side="left", padx=(0, 18))
         ctk.CTkLabel(controls, text="Visitante").pack(side="left", padx=(0, 8))
-        ctk.CTkOptionMenu(controls, values=self.teams_list, variable=away_team, width=260).pack(side="left", padx=(0, 18))
+        ctk.CTkOptionMenu(controls, values=self.teams_list, variable=away_team, width=320).pack(side="left", padx=(0, 18))
 
         results_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
         results_frame.pack(fill="both", expand=True)
@@ -282,7 +493,11 @@ class MainApp(ctk.CTk):
                 ctk.CTkLabel(results_frame, text="Selecciona dos equipos diferentes.").pack(pady=24)
                 return
 
-            matches_df = load_combined_matches(home_team.get(), away_team.get())
+            matches_df = load_combined_matches(
+                self.selected_competition_id,
+                home_team.get(),
+                away_team.get(),
+            )
             prediction = estimate_match_probabilities(
                 self.standings_df,
                 matches_df,

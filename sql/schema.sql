@@ -37,6 +37,19 @@ CREATE TABLE IF NOT EXISTS seasons(
     CONSTRAINT fk_season_winner FOREIGN KEY (winner_team_id) REFERENCES teams(id) ON DELETE SET NULL
 );
 
+CREATE TABLE IF NOT EXISTS competition_teams (
+    id SERIAL PRIMARY KEY,
+    competition_id INT NOT NULL,
+    team_id INT NOT NULL,
+    season_id INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_competition_team_competition FOREIGN KEY (competition_id) REFERENCES competitions(id) ON DELETE CASCADE,
+    CONSTRAINT fk_competition_team_team FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
+    CONSTRAINT fk_competition_team_season FOREIGN KEY (season_id) REFERENCES seasons(id) ON DELETE CASCADE,
+    CONSTRAINT uq_competition_team_season UNIQUE (competition_id, team_id, season_id)
+);
+
 CREATE TABLE IF NOT EXISTS matches (
     id SERIAL PRIMARY KEY, 
     api_id INT UNIQUE NOT NULL,
@@ -82,3 +95,21 @@ CREATE TABLE IF NOT EXISTS standings (
     CONSTRAINT fk_standing_team FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
     CONSTRAINT uq_standing_unique_team_season UNIQUE (season_id, team_id)
 );
+
+CREATE TABLE IF NOT EXISTS sync_runs (
+    id SERIAL PRIMARY KEY,
+    competition_code VARCHAR(20) NOT NULL,
+    started_at TIMESTAMP NOT NULL,
+    finished_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status VARCHAR(20) NOT NULL,
+    message TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_competition_teams_competition
+ON competition_teams(competition_id);
+
+CREATE INDEX IF NOT EXISTS idx_competition_teams_team
+ON competition_teams(team_id);
+
+CREATE INDEX IF NOT EXISTS idx_sync_runs_competition_finished
+ON sync_runs(competition_code, finished_at DESC);

@@ -9,7 +9,16 @@ import streamlit as st
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from app.analytics.match_analysis import compare_teams, estimate_match_probabilities
-from app.database.read_queries import load_matches_by_team, load_standings, load_teams
+from app.config import manual_sync_enabled
+from app.database.connection import execute_schema
+from app.database.read_queries import (
+    load_competitions,
+    load_last_sync_run,
+    load_matches_by_team,
+    load_standings,
+    load_teams,
+)
+from app.services.import_service import sync_competition_data
 
 
 st.set_page_config(
@@ -17,6 +26,87 @@ st.set_page_config(
     page_icon="FDH",
     layout="wide",
 )
+
+# Asegura tablas nuevas como sync_runs antes de leer datos para construir la UI.
+execute_schema()
+
+
+def apply_page_styles():
+    st.markdown(
+        """
+        <style>
+        .fdh-empty {
+            border: 1px solid #243044;
+            background: #111827;
+            padding: 28px;
+            border-radius: 8px;
+            color: #d1d5db;
+        }
+        .fdh-empty h3 {
+            color: #f9fafb;
+            margin: 0 0 8px 0;
+        }
+        .fdh-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #111827;
+            color: #e5e7eb;
+            border: 1px solid #243044;
+            border-radius: 8px;
+            overflow: hidden;
+            font-size: 0.9rem;
+        }
+        .fdh-table th {
+            background: #172033;
+            color: #9ca3af;
+            text-align: left;
+            padding: 10px 12px;
+            border-bottom: 1px solid #243044;
+        }
+        .fdh-table td {
+            padding: 9px 12px;
+            border-bottom: 1px solid #1f2937;
+        }
+        .fdh-table tr:last-child td {
+            border-bottom: 0;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_empty_state(title: str, body: str):
+    st.markdown(
+        f"""
+        <div class="fdh-empty">
+            <h3>{title}</h3>
+            <div>{body}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_dark_table(df: pd.DataFrame, max_rows: int | None = None):
+    display_df = df.head(max_rows) if max_rows else df
+    html = display_df.to_html(index=False, classes="fdh-table", border=0, escape=True)
+    st.markdown(html, unsafe_allow_html=True)
+
+
+def configure_plot(fig, height: int = 420):
+    fig.update_layout(
+        template="plotly_dark",
+        paper_bgcolor="#0f172a",
+        plot_bgcolor="#111827",
+        font_color="#e5e7eb",
+        height=height,
+        margin=dict(l=20, r=20, t=50, b=30),
+    )
+    return fig
+
+
+apply_page_styles()
 
 
 def format_standings_table(df: pd.DataFrame):
@@ -50,8 +140,12 @@ def format_matches_table(df: pd.DataFrame):
     )
 
 
-def load_combined_matches(*team_names: str):
-    frames = [load_matches_by_team(team_name) for team_name in team_names if team_name]
+def load_combined_matches(competition_id: int, *team_names: str):
+    frames = [
+        load_matches_by_team(team_name, competition_id=competition_id)
+        for team_name in team_names
+        if team_name
+    ]
     if not frames:
         return pd.DataFrame()
 
@@ -90,20 +184,58 @@ def probability_chart(prediction: dict):
         yaxis_title="Probabilidad",
         xaxis_title="Resultado",
         yaxis_ticksuffix="%",
-        height=360,
         margin=dict(l=20, r=20, t=50, b=20),
     )
-    return fig
+    return configure_plot(fig, height=360)
 
-
-standings_df = load_standings()
-teams_df = load_teams()
-teams_list = teams_df["name"].tolist()
 
 st.title("Football Data Hub", anchor=False)
 
+competitions_df = load_competitions()
+if competitions_df.empty:
+    render_empty_state(
+        "Datos en preparacion",
+        "Todavia no hay competiciones cargadas. Cuando el proceso de sincronizacion termine, este panel mostrara las ligas disponibles automaticamente.",
+    )
+    st.stop()
+
+competition_options = {
+    f"{row['name']} ({row['code']})": {"id": int(row["id"]), "code": row["code"]}
+    for _, row in competitions_df.iterrows()
+}
+selected_competition_label = st.selectbox("Competicion", list(competition_options.keys()))
+selected_competition = competition_options[selected_competition_label]
+selected_competition_id = selected_competition["id"]
+selected_competition_code = selected_competition["code"]
+
+last_sync_df = load_last_sync_run(selected_competition_code)
+if last_sync_df.empty:
+    st.caption("Ultima actualizacion: sin sincronizaciones registradas.")
+else:
+    last_sync = last_sync_df.iloc[0]
+    status_label = "correcta" if last_sync["status"] == "SUCCESS" else "fallida"
+    st.caption(
+        f"Ultima actualizacion: {last_sync['finished_at']} | Estado: {status_label} | "
+        f"{last_sync.get('message') or ''}"
+    )
+
+if manual_sync_enabled() and st.button("Actualizar competicion desde API"):
+    # La sincronizacion usa upserts: si el registro ya existe, se actualiza con
+    # los datos nuevos de la API en vez de quedarse con informacion antigua.
+    with st.spinner(f"Actualizando {selected_competition_code} desde la API..."):
+        sync_competition_data(selected_competition_code)
+    st.success("Datos actualizados correctamente.")
+    st.rerun()
+
+standings_df = load_standings(selected_competition_id)
+teams_df = load_teams(selected_competition_id)
+teams_list = teams_df["name"].tolist()
+
 if standings_df.empty or not teams_list:
-    st.warning("No hay datos suficientes para construir el dashboard.")
+    render_empty_state(
+        "Competicion sin datos analiticos",
+        "La competicion existe en la base, pero aun no tiene clasificacion o equipos asociados. El panel se completara despues de la proxima sincronizacion.",
+    )
     st.stop()
 
 display_standings_df = format_standings_table(standings_df)
@@ -117,6 +249,47 @@ with col3:
     st.metric("Mejor diferencia", int(standings_df["goal_difference"].max()))
 with col4:
     st.metric("Goles registrados", int(standings_df["goals_for"].sum()))
+
+overview_col1, overview_col2, overview_col3 = st.columns(3)
+with overview_col1:
+    attack_fig = px.bar(
+        standings_df.sort_values("goals_for", ascending=False).head(6),
+        x="team",
+        y="goals_for",
+        color="goals_for",
+        title="Ataques mas productivos",
+        color_continuous_scale="Greens",
+    )
+    attack_fig.update_layout(xaxis_title="", yaxis_title="Goles")
+    st.plotly_chart(configure_plot(attack_fig, height=340), width="stretch")
+
+with overview_col2:
+    defense_fig = px.bar(
+        standings_df.sort_values("goals_against", ascending=True).head(6),
+        x="team",
+        y="goals_against",
+        color="goals_against",
+        title="Defensas mas solidas",
+        color_continuous_scale="Blues_r",
+    )
+    defense_fig.update_layout(xaxis_title="", yaxis_title="Goles encajados")
+    st.plotly_chart(configure_plot(defense_fig, height=340), width="stretch")
+
+with overview_col3:
+    efficiency_df = standings_df.copy()
+    efficiency_df["points_per_game"] = efficiency_df["points"] / efficiency_df["played_games"].replace(0, 1)
+    efficiency_fig = px.scatter(
+        efficiency_df,
+        x="goals_for",
+        y="points_per_game",
+        size="goal_difference",
+        color="position",
+        hover_name="team",
+        title="Eficiencia ofensiva",
+        color_continuous_scale="Viridis_r",
+    )
+    efficiency_fig.update_layout(xaxis_title="Goles a favor", yaxis_title="Puntos/partido")
+    st.plotly_chart(configure_plot(efficiency_fig, height=340), width="stretch")
 
 st.divider()
 tab1, tab2, tab3, tab4, tab5 = st.tabs(
@@ -133,7 +306,7 @@ with tab1:
     col1, col2 = st.columns([2, 1])
 
     with col1:
-        st.dataframe(display_standings_df, width="stretch", hide_index=True)
+        render_dark_table(display_standings_df)
 
     with col2:
         fig = px.bar(
@@ -145,15 +318,15 @@ with tab1:
             title="Puntos por equipo",
             color_continuous_scale="Viridis",
         )
-        fig.update_layout(height=520, xaxis_title="", yaxis_title="Puntos")
-        st.plotly_chart(fig, width="stretch")
+        fig.update_layout(xaxis_title="", yaxis_title="Puntos")
+        st.plotly_chart(configure_plot(fig, height=520), width="stretch")
 
 with tab2:
     selected_team = st.selectbox("Equipo", teams_list, key="matches_team")
-    matches_df = load_matches_by_team(selected_team)
+    matches_df = load_matches_by_team(selected_team, competition_id=selected_competition_id)
     display_matches_df = format_matches_table(matches_df)
 
-    st.dataframe(display_matches_df, width="stretch", hide_index=True)
+    render_dark_table(display_matches_df)
 
     finished_matches = matches_df[matches_df["status"].eq("FINISHED")].copy()
     if not finished_matches.empty:
@@ -169,8 +342,8 @@ with tab2:
             hover_data=["home_team", "away_team", "home_score", "away_score"],
             title=f"Goles por partido - {selected_team}",
         )
-        fig.update_layout(height=420, xaxis_title="Fecha", yaxis_title="Goles")
-        st.plotly_chart(fig, width="stretch")
+        fig.update_layout(xaxis_title="Fecha", yaxis_title="Goles")
+        st.plotly_chart(configure_plot(fig, height=420), width="stretch")
 
 with tab3:
     col1, col2 = st.columns(2)
@@ -182,7 +355,7 @@ with tab3:
     if home_team == away_team:
         st.warning("Selecciona dos equipos diferentes.")
     else:
-        comparison_matches = load_combined_matches(home_team, away_team)
+        comparison_matches = load_combined_matches(selected_competition_id, home_team, away_team)
         comparison_df = compare_teams(standings_df, comparison_matches, home_team, away_team)
 
         fig = px.bar(
@@ -193,9 +366,9 @@ with tab3:
             barmode="group",
             title="Comparativa de rendimiento",
         )
-        fig.update_layout(height=520, xaxis_title="", yaxis_title="Valor")
-        st.plotly_chart(fig, width="stretch")
-        st.dataframe(comparison_df, width="stretch", hide_index=True)
+        fig.update_layout(xaxis_title="", yaxis_title="Valor")
+        st.plotly_chart(configure_plot(fig, height=520), width="stretch")
+        render_dark_table(comparison_df)
 
 with tab4:
     col1, col2 = st.columns(2)
@@ -207,7 +380,7 @@ with tab4:
     if home_team == away_team:
         st.warning("Selecciona dos equipos diferentes.")
     else:
-        prediction_matches = load_combined_matches(home_team, away_team)
+        prediction_matches = load_combined_matches(selected_competition_id, home_team, away_team)
         prediction = estimate_match_probabilities(
             standings_df,
             prediction_matches,
@@ -241,23 +414,23 @@ with tab4:
                 color="team",
                 title="Goles esperados",
             )
-            fig.update_layout(height=360, showlegend=False, xaxis_title="", yaxis_title="Goles")
-            st.plotly_chart(fig, width="stretch")
+            fig.update_layout(showlegend=False, xaxis_title="", yaxis_title="Goles")
+            st.plotly_chart(configure_plot(fig, height=360), width="stretch")
 
         scorelines_df = pd.DataFrame(prediction["top_scorelines"])
         scorelines_df = scorelines_df.rename(
             columns={"score": "Marcador", "probability": "Probabilidad (%)"}
         )
         st.caption("Marcadores mas probables segun modelo Poisson")
-        st.dataframe(scorelines_df, width="stretch", hide_index=True)
+        render_dark_table(scorelines_df)
 
         form_col1, form_col2 = st.columns(2)
         with form_col1:
             st.caption(f"Forma reciente - {home_team}")
-            st.dataframe(prediction["home_summary"]["recent_matches"], width="stretch", hide_index=True)
+            render_dark_table(prediction["home_summary"]["recent_matches"])
         with form_col2:
             st.caption(f"Forma reciente - {away_team}")
-            st.dataframe(prediction["away_summary"]["recent_matches"], width="stretch", hide_index=True)
+            render_dark_table(prediction["away_summary"]["recent_matches"])
 
 with tab5:
     col1, col2 = st.columns(2)
@@ -273,8 +446,8 @@ with tab5:
             title="Ataque vs defensa",
             color_continuous_scale="Viridis_r",
         )
-        fig.update_layout(height=460, xaxis_title="Goles a favor", yaxis_title="Goles en contra")
-        st.plotly_chart(fig, width="stretch")
+        fig.update_layout(xaxis_title="Goles a favor", yaxis_title="Goles en contra")
+        st.plotly_chart(configure_plot(fig, height=460), width="stretch")
 
     with col2:
         fig = px.bar(
@@ -285,5 +458,5 @@ with tab5:
             title="Diferencia de goles",
             color_continuous_scale="Teal",
         )
-        fig.update_layout(height=460, xaxis_title="", yaxis_title="Diferencia")
-        st.plotly_chart(fig, width="stretch")
+        fig.update_layout(xaxis_title="", yaxis_title="Diferencia")
+        st.plotly_chart(configure_plot(fig, height=460), width="stretch")
