@@ -1,5 +1,6 @@
 import os
 import sys
+import base64
 
 import pandas as pd
 import plotly.express as px
@@ -8,22 +9,24 @@ import streamlit as st
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+from app.analytics.dashboard_metrics import calculate_competition_kpis
 from app.analytics.match_analysis import compare_teams, estimate_match_probabilities
 from app.config import manual_sync_enabled
 from app.database.connection import execute_schema
 from app.database.read_queries import (
     load_competitions,
     load_last_sync_run,
+    load_matches,
     load_matches_by_team,
     load_standings,
     load_teams,
 )
 from app.services.import_service import sync_competition_data
-
+from pathlib import Path
 
 st.set_page_config(
     page_title="Football Data Hub",
-    page_icon="FDH",
+    page_icon="./assets/icons/fdh_icon.ico",
     layout="wide",
 )
 
@@ -45,6 +48,33 @@ def apply_page_styles():
         .fdh-empty h3 {
             color: #f9fafb;
             margin: 0 0 8px 0;
+        }
+        .fdh-header {
+            border: 1px solid #243044;
+            background: #0f172a;
+            padding: 24px 28px;
+            border-radius: 8px;
+            margin-bottom: 18px;
+        }
+        .fdh-header h1 {
+            margin: 0;
+            color: #f9fafb;
+            font-size: 2rem;
+            line-height: 1.15;
+        }
+        .fdh-header p {
+            margin: 8px 0 0 0;
+            color: #9ca3af;
+            max-width: 900px;
+        }
+        .fdh-status {
+            border: 1px solid #243044;
+            background: #111827;
+            color: #d1d5db;
+            border-radius: 8px;
+            padding: 12px 14px;
+            margin: 8px 0 16px 0;
+            font-size: 0.92rem;
         }
         .fdh-table {
             width: 100%;
@@ -86,6 +116,43 @@ def render_empty_state(title: str, body: str):
         """,
         unsafe_allow_html=True,
     )
+
+def image_to_base64(image_path):
+    with open(image_path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode()
+
+def render_header():
+
+    BASE_DIR = Path(__file__).resolve().parent.parent
+    logo_path = BASE_DIR / "assets" / "branding" / "fdh_logo_web_512.webp"
+    logo_base64 = image_to_base64(logo_path)
+
+    st.markdown(
+        f"""
+        <div class="fdh-header">
+            <div class="fdh-header-content">
+                <img src="data:image/webp;base64,{logo_base64}" class="fdh-logo">
+                <div>
+                    <h1>Football Data Hub</h1>
+                    <p>Panel de análisis futbolístico para explorar competiciones, clasificaciones, partidos y predicciones basadas en datos sincronizados.</p>
+                </div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_sync_status(last_sync_df: pd.DataFrame):
+    if last_sync_df.empty:
+        text = "Última actualización: sin sincronizaciones registradas."
+    else:
+        last_sync = last_sync_df.iloc[0]
+        status_label = "correcta" if last_sync["status"] == "SUCCESS" else "fallida"
+        message = last_sync.get("message") or ""
+        text = f"Ultima actualizacion: {last_sync['finished_at']} | Estado: {status_label} | {message}"
+
+    st.markdown(f'<div class="fdh-status">{text}</div>', unsafe_allow_html=True)
 
 
 def render_dark_table(df: pd.DataFrame, max_rows: int | None = None):
@@ -189,7 +256,7 @@ def probability_chart(prediction: dict):
     return configure_plot(fig, height=360)
 
 
-st.title("Football Data Hub", anchor=False)
+render_header()
 
 competitions_df = load_competitions()
 if competitions_df.empty:
@@ -209,15 +276,7 @@ selected_competition_id = selected_competition["id"]
 selected_competition_code = selected_competition["code"]
 
 last_sync_df = load_last_sync_run(selected_competition_code)
-if last_sync_df.empty:
-    st.caption("Ultima actualizacion: sin sincronizaciones registradas.")
-else:
-    last_sync = last_sync_df.iloc[0]
-    status_label = "correcta" if last_sync["status"] == "SUCCESS" else "fallida"
-    st.caption(
-        f"Ultima actualizacion: {last_sync['finished_at']} | Estado: {status_label} | "
-        f"{last_sync.get('message') or ''}"
-    )
+render_sync_status(last_sync_df)
 
 if manual_sync_enabled() and st.button("Actualizar competicion desde API"):
     # La sincronizacion usa upserts: si el registro ya existe, se actualiza con
@@ -229,6 +288,7 @@ if manual_sync_enabled() and st.button("Actualizar competicion desde API"):
 
 standings_df = load_standings(selected_competition_id)
 teams_df = load_teams(selected_competition_id)
+competition_matches_df = load_matches(selected_competition_id)
 teams_list = teams_df["name"].tolist()
 
 if standings_df.empty or not teams_list:
@@ -239,16 +299,25 @@ if standings_df.empty or not teams_list:
     st.stop()
 
 display_standings_df = format_standings_table(standings_df)
+kpis = calculate_competition_kpis(standings_df, competition_matches_df)
 
-col1, col2, col3, col4 = st.columns(4)
-with col1:
-    st.metric("Equipos", len(standings_df))
-with col2:
-    st.metric("Maximo de puntos", int(standings_df["points"].max()))
-with col3:
-    st.metric("Mejor diferencia", int(standings_df["goal_difference"].max()))
-with col4:
-    st.metric("Goles registrados", int(standings_df["goals_for"].sum()))
+main_kpi_cols = st.columns(4)
+for column, key in zip(
+    main_kpi_cols,
+    ["leader", "top_attack", "best_defense", "goals_per_match"],
+):
+    item = kpis[key]
+    with column:
+        st.metric(item["label"], item["value"], item["detail"])
+
+secondary_kpi_cols = st.columns(4)
+for column, key in zip(
+    secondary_kpi_cols,
+    ["highest_scoring_match", "next_match", "completion_rate", "pending_matches"],
+):
+    item = kpis[key]
+    with column:
+        st.metric(item["label"], item["value"], item["detail"])
 
 overview_col1, overview_col2, overview_col3 = st.columns(3)
 with overview_col1:
@@ -278,13 +347,15 @@ with overview_col2:
 with overview_col3:
     efficiency_df = standings_df.copy()
     efficiency_df["points_per_game"] = efficiency_df["points"] / efficiency_df["played_games"].replace(0, 1)
+    efficiency_df["goal_difference_size"] = efficiency_df["goal_difference"].abs() + 1
     efficiency_fig = px.scatter(
         efficiency_df,
         x="goals_for",
         y="points_per_game",
-        size="goal_difference",
+        size="goal_difference_size",
         color="position",
         hover_name="team",
+        hover_data=["goal_difference"],
         title="Eficiencia ofensiva",
         color_continuous_scale="Viridis_r",
     )
@@ -316,7 +387,7 @@ with tab1:
             color="goal_difference",
             hover_data=["played_games", "goals_for", "goals_against"],
             title="Puntos por equipo",
-            color_continuous_scale="Viridis",
+            color_continuous_scale="Blues",
         )
         fig.update_layout(xaxis_title="", yaxis_title="Puntos")
         st.plotly_chart(configure_plot(fig, height=520), width="stretch")

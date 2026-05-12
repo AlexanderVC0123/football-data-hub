@@ -8,6 +8,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")
 from app.database.read_queries import (
     load_competitions,
     load_last_sync_run,
+    load_matches,
     load_matches_by_team,
     load_standings,
     load_teams,
@@ -33,6 +34,7 @@ def load_combined_matches(competition_id: int | None, *team_names: str):
 __all__ = [
     "load_competitions",
     "load_last_sync_run",
+    "load_matches",
     "load_standings",
     "load_teams",
     "load_matches_by_team",

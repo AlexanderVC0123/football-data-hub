@@ -6,6 +6,7 @@ import customtkinter as ctk
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+from app.analytics.dashboard_metrics import calculate_competition_kpis
 from app.analytics.match_analysis import compare_teams, estimate_match_probabilities
 from app.config import manual_sync_enabled
 from app.database.connection import execute_schema
@@ -14,6 +15,7 @@ from utils_desktop.db_utils import (
     load_combined_matches,
     load_competitions,
     load_last_sync_run,
+    load_matches,
     load_matches_by_team,
     load_standings,
     load_teams,
@@ -29,8 +31,8 @@ class MainApp(ctk.CTk):
         super().__init__()
 
         self.title("Football Data Hub")
-        self.geometry("1280x760")
-        self.minsize(1100, 680)
+        self.geometry("1440x840")
+        self.minsize(1180, 720)
         self.configure(fg_color="#0f172a")
 
         # Asegura tablas nuevas como sync_runs antes de cargar datos en la app.
@@ -51,7 +53,7 @@ class MainApp(ctk.CTk):
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
-        self.sidebar = ctk.CTkFrame(self, width=220, corner_radius=0)
+        self.sidebar = ctk.CTkFrame(self, width=250, corner_radius=0)
         self.sidebar.grid(row=0, column=0, sticky="ns")
         self.sidebar.grid_propagate(False)
 
@@ -70,14 +72,15 @@ class MainApp(ctk.CTk):
             foreground="#e5e7eb",
             fieldbackground="#111827",
             bordercolor="#243044",
-            rowheight=30,
+            font=("Segoe UI", 12),
+            rowheight=38,
         )
         style.configure(
             "Treeview.Heading",
             background="#172033",
             foreground="#d1d5db",
             relief="flat",
-            font=("Segoe UI", 10, "bold"),
+            font=("Segoe UI", 12, "bold"),
         )
         style.map(
             "Treeview",
@@ -94,6 +97,7 @@ class MainApp(ctk.CTk):
         ).get("code")
         self.standings_df = load_standings(self.selected_competition_id)
         self.teams_df = load_teams(self.selected_competition_id)
+        self.matches_df = load_matches(self.selected_competition_id)
         self.teams_list = self.teams_df["name"].tolist()
         self.last_sync_text = self.get_last_sync_text()
 
@@ -235,7 +239,14 @@ class MainApp(ctk.CTk):
             wraplength=760,
         ).pack(fill="x", padx=22, pady=(0, 20))
 
-    def create_table(self, parent, columns: tuple[str, ...], rows: list[tuple], height: int = 16):
+    def create_table(
+        self,
+        parent,
+        columns: tuple[str, ...],
+        rows: list[tuple],
+        height: int = 16,
+        column_widths: dict[str, int] | None = None,
+    ):
         frame = ctk.CTkFrame(parent)
         frame.pack(fill="both", expand=True, padx=24, pady=12)
 
@@ -248,7 +259,9 @@ class MainApp(ctk.CTk):
 
         for col in columns:
             tree.heading(col, text=col)
-            tree.column(col, anchor="center", width=130)
+            width = column_widths.get(col, 140) if column_widths else 140
+            anchor = "w" if col in {"Equipo", "Local", "Visitante", "Metrica"} else "center"
+            tree.column(col, anchor=anchor, width=width, minwidth=width)
 
         for row in rows:
             tree.insert("", "end", values=row)
@@ -269,25 +282,36 @@ class MainApp(ctk.CTk):
             )
             return
 
-        metrics_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
-        metrics_frame.pack(fill="x", padx=24, pady=12)
+        kpis = calculate_competition_kpis(self.standings_df, self.matches_df)
 
-        metrics = [
-            ("Equipos", len(self.standings_df)),
-            ("Maximo de puntos", int(self.standings_df["points"].max()) if not self.standings_df.empty else 0),
-            (
-                "Mejor diferencia",
-                int(self.standings_df["goal_difference"].max()) if not self.standings_df.empty else 0,
-            ),
-            ("Goles registrados", int(self.standings_df["goals_for"].sum()) if not self.standings_df.empty else 0),
-        ]
+        for row_index, keys in enumerate(
+            [
+                ["leader", "top_attack", "best_defense", "goals_per_match"],
+                ["highest_scoring_match", "next_match", "completion_rate", "pending_matches"],
+            ]
+        ):
+            metrics_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
+            metrics_frame.pack(fill="x", padx=24, pady=(12 if row_index == 0 else 2, 2))
 
-        for index, (label, value) in enumerate(metrics):
-            metrics_frame.grid_columnconfigure(index, weight=1)
-            card = ctk.CTkFrame(metrics_frame, corner_radius=8)
-            card.grid(row=0, column=index, sticky="ew", padx=6)
-            ctk.CTkLabel(card, text=label, text_color="#9ca3af").pack(pady=(16, 4))
-            ctk.CTkLabel(card, text=str(value), font=ctk.CTkFont(size=28, weight="bold")).pack(pady=(0, 16))
+            for index, key in enumerate(keys):
+                item = kpis[key]
+                metrics_frame.grid_columnconfigure(index, weight=1)
+                card = ctk.CTkFrame(metrics_frame, corner_radius=8)
+                card.grid(row=0, column=index, sticky="ew", padx=6)
+                ctk.CTkLabel(card, text=item["label"], text_color="#9ca3af").pack(pady=(14, 3))
+                ctk.CTkLabel(
+                    card,
+                    text=str(item["value"]),
+                    font=ctk.CTkFont(size=20, weight="bold"),
+                    wraplength=260,
+                ).pack(pady=(0, 2))
+                ctk.CTkLabel(
+                    card,
+                    text=str(item["detail"]),
+                    text_color="#9ca3af",
+                    font=ctk.CTkFont(size=12),
+                    wraplength=260,
+                ).pack(pady=(0, 14))
 
         summary_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
         summary_frame.pack(fill="both", expand=True)
@@ -324,6 +348,7 @@ class MainApp(ctk.CTk):
             ("Posicion", "Equipo", "Puntos", "GF", "GC", "DG"),
             rows,
             height=16,
+            column_widths={"Posicion": 95, "Equipo": 220, "Puntos": 105, "GF": 85, "GC": 85, "DG": 85},
         )
 
         ctk.CTkLabel(
@@ -341,6 +366,7 @@ class MainApp(ctk.CTk):
             ("Equipo", "GF"),
             attack_rows,
             height=10,
+            column_widths={"Equipo": 210, "GF": 80},
         )
 
         ctk.CTkLabel(
@@ -358,6 +384,7 @@ class MainApp(ctk.CTk):
             ("Equipo", "GC"),
             defense_rows,
             height=10,
+            column_widths={"Equipo": 210, "GC": 80},
         )
 
     def show_standings(self):
@@ -391,6 +418,18 @@ class MainApp(ctk.CTk):
             self.main_frame,
             ("Posicion", "Equipo", "PJ", "G", "E", "P", "Pts", "GF", "GC", "DG"),
             rows,
+            column_widths={
+                "Posicion": 95,
+                "Equipo": 260,
+                "PJ": 70,
+                "G": 70,
+                "E": 70,
+                "P": 70,
+                "Pts": 80,
+                "GF": 70,
+                "GC": 70,
+                "DG": 70,
+            },
         )
 
     def show_matches(self):
@@ -443,6 +482,15 @@ class MainApp(ctk.CTk):
                 table_container,
                 ("Jornada", "Fecha", "Local", "Visitante", "GL", "GV", "Estado"),
                 rows,
+                column_widths={
+                    "Jornada": 90,
+                    "Fecha": 190,
+                    "Local": 240,
+                    "Visitante": 240,
+                    "GL": 70,
+                    "GV": 70,
+                    "Estado": 130,
+                },
             )
 
         ctk.CTkButton(controls, text="Consultar", command=render_matches, width=130).pack(side="left")
@@ -469,9 +517,9 @@ class MainApp(ctk.CTk):
         away_team = ctk.StringVar(value=self.teams_list[1])
 
         ctk.CTkLabel(controls, text="Local").pack(side="left", padx=(0, 8))
-        ctk.CTkOptionMenu(controls, values=self.teams_list, variable=home_team, width=320).pack(side="left", padx=(0, 18))
+        ctk.CTkOptionMenu(controls, values=self.teams_list, variable=home_team, width=380).pack(side="left", padx=(0, 18))
         ctk.CTkLabel(controls, text="Visitante").pack(side="left", padx=(0, 8))
-        ctk.CTkOptionMenu(controls, values=self.teams_list, variable=away_team, width=320).pack(side="left", padx=(0, 18))
+        ctk.CTkOptionMenu(controls, values=self.teams_list, variable=away_team, width=380).pack(side="left", padx=(0, 18))
 
         results_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
         results_frame.pack(fill="both", expand=True)
@@ -544,7 +592,13 @@ class MainApp(ctk.CTk):
                 (row["metric"], row["team"], row["value"])
                 for _, row in comparison_df.iterrows()
             ]
-            self.create_table(results_frame, ("Metrica", "Equipo", "Valor"), rows, height=10)
+            self.create_table(
+                results_frame,
+                ("Metrica", "Equipo", "Valor"),
+                rows,
+                height=10,
+                column_widths={"Metrica": 260, "Equipo": 260, "Valor": 110},
+            )
 
         ctk.CTkButton(controls, text="Analizar partido", command=render_prediction, width=150).pack(side="left")
         render_prediction()

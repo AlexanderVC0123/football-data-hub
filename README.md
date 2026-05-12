@@ -165,6 +165,37 @@ venv\Scripts\python.exe desktop_app/main.py
 venv\Scripts\python.exe -m pytest
 ```
 
+## Automatizacion Con GitHub Actions
+
+El proyecto incluye dos workflows:
+
+- `.github/workflows/ci.yml`: ejecuta tests en push y pull request.
+- `.github/workflows/sync-data.yml`: sincroniza datos cada 6 horas y tambien permite ejecucion manual.
+
+Para que `sync-data.yml` funcione, configura estos secrets en GitHub:
+
+```text
+DB_NAME
+DB_USER
+DB_PASSWORD
+DB_HOST
+DB_PORT
+FOOTBALL_API_URL
+FOOTBALL_API_KEY
+```
+
+La sincronizacion programada ejecuta:
+
+```bash
+python run.py --all
+```
+
+Desde GitHub Actions tambien puedes lanzar una sincronizacion manual indicando competiciones:
+
+```text
+PD PL SA
+```
+
 ## Despliegue Web
 
 Para prototipo rapido:

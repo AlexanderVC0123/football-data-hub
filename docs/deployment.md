@@ -41,6 +41,30 @@ Comando recomendado:
 python run.py --all
 ```
 
+El repositorio ya incluye `.github/workflows/sync-data.yml`, que ejecuta la sincronizacion cada 6 horas.
+
+Configura estos secrets en GitHub:
+
+```text
+DB_NAME
+DB_USER
+DB_PASSWORD
+DB_HOST
+DB_PORT
+FOOTBALL_API_URL
+FOOTBALL_API_KEY
+```
+
+Tambien puedes ejecutarlo manualmente desde la pestana Actions indicando competiciones concretas:
+
+```text
+PD PL SA
+```
+
+## Integracion Continua
+
+El workflow `.github/workflows/ci.yml` ejecuta los tests con `pytest` en cada push o pull request.
+
 ## Desktop
 
 Para prototipo instalable:

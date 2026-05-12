@@ -149,3 +149,34 @@ def load_matches_by_team(team_name: str, competition_id: int | None = None):
         return pd.read_sql(query, conn, params=tuple(params))
     finally:
         conn.close()
+
+
+def load_matches(competition_id: int | None = None):
+    """Carga partidos, opcionalmente filtrados por competicion."""
+
+    query = """
+        SELECT
+            m.matchday,
+            m.utc_date,
+            ht.name AS home_team,
+            at.name AS away_team,
+            m.home_score,
+            m.away_score,
+            m.status
+        FROM matches m
+        JOIN teams ht ON m.home_team_id = ht.id
+        JOIN teams at ON m.away_team_id = at.id
+    """
+    params = None
+
+    if competition_id is not None:
+        query += " WHERE m.competition_id = %s"
+        params = (competition_id,)
+
+    query += " ORDER BY m.utc_date;"
+
+    conn = get_connection()
+    try:
+        return pd.read_sql(query, conn, params=params)
+    finally:
+        conn.close()
