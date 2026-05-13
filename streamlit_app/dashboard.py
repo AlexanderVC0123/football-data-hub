@@ -23,12 +23,22 @@ from app.database.read_queries import (
 )
 from app.services.import_service import sync_competition_data
 from pathlib import Path
+from auth_page import inicializar_sesion, mostrar_login, mostrar_sidebar_sesion
+
 
 st.set_page_config(
     page_title="Football Data Hub",
     page_icon="./assets/icons/fdh_icon.ico",
     layout="wide",
 )
+
+inicializar_sesion()
+
+if not st.session_state.logueado:
+    mostrar_login()
+    st.stop()
+
+mostrar_sidebar_sesion()
 
 # Asegura tablas nuevas como sync_runs antes de leer datos para construir la UI.
 execute_schema()
@@ -56,6 +66,17 @@ def apply_page_styles():
             border-radius: 8px;
             margin-bottom: 18px;
         }
+        .fdh-header-content {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+        }
+        .fdh-logo {
+            width: 100px;
+            height: 100px;
+            object-fit: contain;
+            flex: 0 0 auto;
+        }
         .fdh-header h1 {
             margin: 0;
             color: #f9fafb;
@@ -66,6 +87,21 @@ def apply_page_styles():
             margin: 8px 0 0 0;
             color: #9ca3af;
             max-width: 900px;
+        }
+        @media (max-width: 640px) {
+            .fdh-header {
+                padding: 20px;
+            }
+            .fdh-header-content {
+                gap: 14px;
+            }
+            .fdh-logo {
+                width: 46px;
+                height: 46px;
+            }
+            .fdh-header h1 {
+                font-size: 1.55rem;
+            }
         }
         .fdh-status {
             border: 1px solid #243044;
@@ -131,7 +167,7 @@ def render_header():
         f"""
         <div class="fdh-header">
             <div class="fdh-header-content">
-                <img src="data:image/webp;base64,{logo_base64}" class="fdh-logo">
+                <img src="data:image/webp;base64,{logo_base64}" class="fdh-logo" alt="Football Data Hub">
                 <div>
                     <h1>Football Data Hub</h1>
                     <p>Panel de análisis futbolístico para explorar competiciones, clasificaciones, partidos y predicciones basadas en datos sincronizados.</p>

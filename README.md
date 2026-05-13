@@ -1,6 +1,6 @@
 # Football Data Hub
 
-Football Data Hub es una plataforma de analisis futbolistico con app web y app de escritorio. El proyecto consume datos desde una API externa, los guarda en PostgreSQL y permite explorar clasificaciones, partidos, equipos, comparativas y predicciones iniciales basadas en un modelo Poisson simple.
+Football Data Hub es una plataforma de análisis futbolístico con app web y app de escritorio. El proyecto consume datos desde una API externa, los guarda en PostgreSQL y permite explorar clasificaciones, partidos, equipos, comparativas y predicciones iniciales basadas en un modelo Poisson simple.
 
 ## Estado Del Proyecto
 

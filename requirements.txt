@@ -8,3 +8,4 @@ streamlit
 customtkinter
 pytest
 plotly
+supabase
