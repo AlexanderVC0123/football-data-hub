@@ -36,7 +36,7 @@ def get_connection():
         user=get_required_env("DB_USER"),
         password=get_required_env("DB_PASSWORD"),
         host=get_required_env("DB_HOST"),
-        port=get_required_env("DB_PORT"),
+        port=int(get_required_env("DB_PORT")),
     )
 
 

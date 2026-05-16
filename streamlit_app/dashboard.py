@@ -23,7 +23,7 @@ from app.database.read_queries import (
 )
 from app.services.import_service import sync_competition_data
 from pathlib import Path
-from auth_page import inicializar_sesion, mostrar_login, mostrar_sidebar_sesion
+from auth_page import inicializar_sesion, mostrar_login_header, mostrar_usuario_header
 
 
 st.set_page_config(
@@ -32,109 +32,183 @@ st.set_page_config(
     layout="wide",
 )
 
-inicializar_sesion()
-
-if not st.session_state.logueado:
-    mostrar_login()
-    st.stop()
-
-mostrar_sidebar_sesion()
-
 # Asegura tablas nuevas como sync_runs antes de leer datos para construir la UI.
-execute_schema()
+if "schema_checked" not in st.session_state:
+    execute_schema()
+    st.session_state.schema_checked = True
 
 
 def apply_page_styles():
     st.markdown(
         """
         <style>
-        .fdh-empty {
-            border: 1px solid #243044;
-            background: #111827;
-            padding: 28px;
-            border-radius: 8px;
-            color: #d1d5db;
+        /* Quitamos padding superior excesivo de Streamlit */
+        .block-container {
+            padding-top: 1.2rem;
+            padding-left: 2rem;
+            padding-right: 2rem;
         }
-        .fdh-empty h3 {
-            color: #f9fafb;
-            margin: 0 0 8px 0;
+
+        /* === NAVBAR COMO BLOQUE ÚNICO === */
+        .st-key-fdh_topbar {
+            background: #0b1220;
+            border: 1px solid #1e293b;
+            border-radius: 14px;
+            padding: 12px 20px;
+            margin-bottom: 16px;
         }
-        .fdh-header {
-            border: 1px solid #243044;
-            background: #0f172a;
-            padding: 24px 28px;
-            border-radius: 8px;
-            margin-bottom: 18px;
-        }
-        .fdh-header-content {
-            display: flex;
+
+        .st-key-fdh_topbar div[data-testid="stHorizontalBlock"] {
             align-items: center;
-            gap: 18px;
         }
-        .fdh-logo {
-            width: 100px;
-            height: 100px;
+        
+        /* Marca: ya no necesita caja propia */
+        .fdh-navbar {
+            background: transparent;
+            border: none;
+            padding: 0;
+            min-height: 0;
+        }
+
+        .fdh-brand img {
+            width: 42px;
+            height: 42px;
             object-fit: contain;
-            flex: 0 0 auto;
         }
-        .fdh-header h1 {
+
+        .fdh-brand-title {
+            color: #f8fafc;
+            font-size: 1.15rem;
+            font-weight: 800;
             margin: 0;
-            color: #f9fafb;
-            font-size: 2rem;
-            line-height: 1.15;
+            line-height: 1.1;
         }
-        .fdh-header p {
-            margin: 8px 0 0 0;
-            color: #9ca3af;
-            max-width: 900px;
+
+        .fdh-brand-subtitle {
+            color: #94a3b8;
+            font-size: 0.75rem;
+            margin: 2px 0 0 0;
         }
-        @media (max-width: 640px) {
-            .fdh-header {
-                padding: 20px;
-            }
-            .fdh-header-content {
-                gap: 14px;
-            }
-            .fdh-logo {
-                width: 46px;
-                height: 46px;
-            }
-            .fdh-header h1 {
-                font-size: 1.55rem;
-            }
-        }
-        .fdh-status {
-            border: 1px solid #243044;
+
+        /* Botones de navegación más compactos */
+        .st-key-fdh_topbar div[data-testid="stButton"] button {
+            border-radius: 10px;
+            border: 1px solid #1e293b;
             background: #111827;
-            color: #d1d5db;
+            color: #e5e7eb;
+            font-weight: 600;
+            height: 38px;
+            font-size: 0.88rem;
+        }
+
+        .st-key-fdh_topbar div[data-testid="stButton"] button:hover {
+            border-color: #38bdf8;
+            color: #ffffff;
+            background: #172033;
+        }
+
+        /* Botón del popover (Acceder / 👤 usuario): mismo estilo que la nav */
+        .st-key-fdh_topbar div[data-testid="stPopover"] button {
+            border-radius: 10px;
+            border: 1px solid #1e293b;
+            background: #111827;
+            color: #e5e7eb;
+            font-weight: 600;
+            height: 38px;
+            font-size: 0.88rem;
+            width: 100%;
+        }
+
+        .st-key-fdh_topbar div[data-testid="stPopover"] button:hover {
+            border-color: #38bdf8;
+            background: #172033;
+        }
+
+        /* === DENTRO DEL POPOVER === */
+        /* Form de login: sin caja extra, ya está dentro del popover */
+        div[data-testid="stForm"] {
+            background: transparent;
+            border: none;
+            padding: 0;
+            box-shadow: none;
+        }
+
+        div[data-testid="stForm"] input {
+            background: #111827;
+            color: #f8fafc;
             border-radius: 8px;
+            height: 38px;
+        }
+
+        /* Caja de usuario dentro del popover */
+        .fdh-user-box {
+            background: transparent;
+            border: none;
+            padding: 0;
+            min-height: 0;
+            margin-bottom: 10px;
+        }
+
+        .fdh-user-box h3 {
+            margin: 0 0 4px 0;
+            font-size: 0.85rem;
+            color: #f8fafc;
+        }
+
+        .fdh-user-email {
+            font-size: 0.8rem;
+            color: #cbd5e1;
+            word-break: break-word;
+        }
+
+
+        /* Estado sincronización */
+        .fdh-status {
+            border: 1px solid #1e293b;
+            background: #0b1220;
+            color: #cbd5e1;
+            border-radius: 12px;
             padding: 12px 14px;
-            margin: 8px 0 16px 0;
+            margin: 14px 0 16px 0;
             font-size: 0.92rem;
         }
+
+        /* Tablas */
         .fdh-table {
             width: 100%;
             border-collapse: collapse;
-            background: #111827;
+            background: #0b1220;
             color: #e5e7eb;
-            border: 1px solid #243044;
-            border-radius: 8px;
+            border: 1px solid #1e293b;
+            border-radius: 10px;
             overflow: hidden;
             font-size: 0.9rem;
         }
+
         .fdh-table th {
-            background: #172033;
-            color: #9ca3af;
+            background: #111827;
+            color: #93c5fd;
             text-align: left;
             padding: 10px 12px;
-            border-bottom: 1px solid #243044;
+            border-bottom: 1px solid #1e293b;
         }
+
         .fdh-table td {
             padding: 9px 12px;
             border-bottom: 1px solid #1f2937;
         }
-        .fdh-table tr:last-child td {
-            border-bottom: 0;
+
+        .fdh-empty {
+            border: 1px solid #1e293b;
+            background: #0b1220;
+            padding: 28px;
+            border-radius: 12px;
+            color: #cbd5e1;
+        }
+
+        .fdh-empty h3 {
+            color: #f8fafc;
+            margin: 0 0 8px 0;
         }
         </style>
         """,
@@ -156,27 +230,75 @@ def render_empty_state(title: str, body: str):
 def image_to_base64(image_path):
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode()
+    
 
-def render_header():
-
+def render_brand():
     BASE_DIR = Path(__file__).resolve().parent.parent
     logo_path = BASE_DIR / "assets" / "branding" / "fdh_logo_web_512.webp"
     logo_base64 = image_to_base64(logo_path)
+    
 
     st.markdown(
         f"""
-        <div class="fdh-header">
-            <div class="fdh-header-content">
-                <img src="data:image/webp;base64,{logo_base64}" class="fdh-logo" alt="Football Data Hub">
+        <div class="fdh-navbar">
+            <div class="fdh-brand">
+                <img src="data:image/webp;base64,{logo_base64}" alt="FDH logo">
                 <div>
-                    <h1>Football Data Hub</h1>
-                    <p>Panel de análisis futbolístico para explorar competiciones, clasificaciones, partidos y predicciones basadas en datos sincronizados.</p>
+                    <p class="fdh-brand-title">Football Data Hub</p>
+                    <p class="fdh-brand-subtitle">Football analytics dashboard</p>
                 </div>
             </div>
         </div>
         """,
-        unsafe_allow_html=True,
+        unsafe_allow_html=True
     )
+
+def cambiar_pagina(nombre_pagina):
+    st.session_state.pagina_actual = nombre_pagina
+
+def render_navigation():
+    if "pagina_actual" not in st.session_state:
+        st.session_state.pagina_actual = "Clasificación"
+
+    paginas = [
+        "Clasificación",
+        "Partidos",
+        "Comparador",
+        "Predicción",
+        "Estadísticas"
+    ]
+
+    cols = st.columns(len(paginas))
+
+    for col, pagina in zip(cols, paginas):
+        with col:
+            if st.button(pagina, key=f"nav_{pagina}", use_container_width=True):
+                cambiar_pagina(pagina)
+        
+    return st.session_state.pagina_actual
+
+def render_topbar():
+
+    inicializar_sesion()
+
+    with st.container(key="fdh_topbar"):
+
+        col_brand, col_nav, col_user = st.columns([2,4, 1.2], gap="small", vertical_alignment="center",)
+
+        with col_brand:
+            render_brand()
+        
+        with col_nav:
+            selected_page = render_navigation()
+
+        with col_user:
+            if st.session_state.logueado:
+                mostrar_usuario_header()
+            else:
+                mostrar_login_header()
+
+        st.markdown('</div>', unsafe_allow_html=True)
+    return selected_page
 
 
 def render_sync_status(last_sync_df: pd.DataFrame):
@@ -292,7 +414,16 @@ def probability_chart(prediction: dict):
     return configure_plot(fig, height=360)
 
 
-render_header()
+selected_page = render_topbar()
+
+if not st.session_state.logueado:
+    render_empty_state(
+        "Acceso restringido",
+        "Inicia sesión para acceder al panel"
+    )
+    st.stop()
+
+st.divider()
 
 competitions_df = load_competitions()
 if competitions_df.empty:
@@ -399,17 +530,8 @@ with overview_col3:
     st.plotly_chart(configure_plot(efficiency_fig, height=340), width="stretch")
 
 st.divider()
-tab1, tab2, tab3, tab4, tab5 = st.tabs(
-    [
-        "Clasificacion",
-        "Partidos",
-        "Comparador",
-        "Prediccion",
-        "Estadisticas",
-    ]
-)
 
-with tab1:
+if selected_page == "Clasificación":
     col1, col2 = st.columns([2, 1])
 
     with col1:
@@ -428,7 +550,7 @@ with tab1:
         fig.update_layout(xaxis_title="", yaxis_title="Puntos")
         st.plotly_chart(configure_plot(fig, height=520), width="stretch")
 
-with tab2:
+elif selected_page == "Partidos":
     selected_team = st.selectbox("Equipo", teams_list, key="matches_team")
     matches_df = load_matches_by_team(selected_team, competition_id=selected_competition_id)
     display_matches_df = format_matches_table(matches_df)
@@ -452,7 +574,7 @@ with tab2:
         fig.update_layout(xaxis_title="Fecha", yaxis_title="Goles")
         st.plotly_chart(configure_plot(fig, height=420), width="stretch")
 
-with tab3:
+elif selected_page == "Comparador":
     col1, col2 = st.columns(2)
     with col1:
         home_team = st.selectbox("Equipo A", teams_list, key="compare_home")
@@ -477,7 +599,7 @@ with tab3:
         st.plotly_chart(configure_plot(fig, height=520), width="stretch")
         render_dark_table(comparison_df)
 
-with tab4:
+elif selected_page == "Predicción":
     col1, col2 = st.columns(2)
     with col1:
         home_team = st.selectbox("Local", teams_list, key="prediction_home")
@@ -539,7 +661,7 @@ with tab4:
             st.caption(f"Forma reciente - {away_team}")
             render_dark_table(prediction["away_summary"]["recent_matches"])
 
-with tab5:
+elif selected_page == "Estadísticas":
     col1, col2 = st.columns(2)
 
     with col1:

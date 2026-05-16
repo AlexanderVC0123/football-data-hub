@@ -11,8 +11,15 @@ on:
         default: ""
 
 jobs:
-  sync:
+  sync-default:
+    if: ${{github.event_name == 'schedule' || github.event.inputs.competitions == ''}}
     runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        competition: [PD, PL, SA, BL1, FL1]
 
     env:
       APP_ENV: production
@@ -36,13 +43,12 @@ jobs:
           cache: "pip"
 
       - name: Install dependencies
-        run: python -m pip install -r requirements.txt
+        run: 
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
 
       - name: Sync data
         shell: bash
         run: |
-          if [ -n "${{ github.event.inputs.competitions }}" ]; then
-            python run.py --competitions ${{ github.event.inputs.competitions }}
-          else
-            python run.py --all
-          fi
+          echo "Sycing competition ${{matrix.competition}}"
+          python run.py --competitions ${{matrix.competition}}

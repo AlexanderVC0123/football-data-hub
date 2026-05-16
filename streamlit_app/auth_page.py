@@ -1,3 +1,5 @@
+from html import escape
+
 import streamlit as st
 
 from app.auth.auth_service import login_supabase
@@ -15,22 +17,34 @@ def inicializar_sesion():
         st.session_state.usuario = None
 
 
-def mostrar_login():
+def mostrar_login_header():
     """
-    Muestra la pagina de login y guarda el usuario si Supabase valida las credenciales.
+    Muestra un login compacto dentro de la cabecera del dashboard.
     """
 
-    inicializar_sesion()
+    with st.popover("Acceder", use_container_width=True):
+        with st.form("login_form", clear_on_submit=False):
 
-    st.title("FOOTBALL DATA HUB")
-    st.subheader("Inicio de sesion")
+            email = st.text_input(
+                "Email",
+                placeholder="usuario@email.com",
+                label_visibility="collapsed",
+            )
 
-    email = st.text_input("Email")
-    password = st.text_input("Contrasena", type="password")
+            password = st.text_input(
+                "Contraseña",
+                type="password",
+                placeholder="Contrasena",
+                label_visibility="collapsed",
+            )
 
-    if st.button("Iniciar sesion"):
+            login_button = st.form_submit_button("Iniciar sesión", use_container_width=True,)
+
+        if not login_button:
+            return
+
         if email == "" or password == "":
-            st.warning("Debes introducir email y contrasena")
+            st.warning("Introduce email y contraseña")
             return
 
         respuesta = login_supabase(email, password)
@@ -41,7 +55,34 @@ def mostrar_login():
             st.success("Login correcto")
             st.rerun()
 
-        st.error("Email o contrasena incorrectos")
+        st.error("Email o contraseña incorrecto")
+
+
+def mostrar_usuario_header():
+    """
+    Muestra el usuario conectado dentro de un popover y el boton de cerrar sesión.
+    """
+
+    email = ""
+    if st.session_state.usuario is not None:
+        email = escape(st.session_state.usuario.email)
+
+        short_label = email.split("@")[0] if email else "Sesión"
+    
+    with st.popover(f"{short_label}", use_container_width=True):
+
+        st.markdown(
+            f"""
+            <div class="fdh-user-box">
+                <h3>Sesion iniciada</h3>
+                <div class="fdh-user-email">{email}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        if st.button("Cerrar sesion", key="logout_button", use_container_width=True):
+            cerrar_sesion()
 
 
 def cerrar_sesion():
@@ -52,18 +93,3 @@ def cerrar_sesion():
     st.session_state.logueado = False
     st.session_state.usuario = None
     st.rerun()
-
-
-def mostrar_sidebar_sesion():
-    """
-    Muestra los datos de la sesión en la barra lateral del dashboard.
-    """
-
-    with st.sidebar:
-        st.write("### Sesion")
-
-        if st.session_state.usuario is not None:
-            st.write(st.session_state.usuario.email)
-
-        if st.button("Cerrar sesion"):
-            cerrar_sesion()
