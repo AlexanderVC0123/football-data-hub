@@ -19,6 +19,9 @@ def sync_competition_data(competition_code: str):
     """Sincroniza una competicion completa desde la API."""
 
     competition_code = competition_code.upper()
+
+    execute_schema()
+
     started_at = datetime.now()
     connection = get_connection()
     # Aseguramos el esquema antes de importar para que las apps puedan actualizar
@@ -26,7 +29,7 @@ def sync_competition_data(competition_code: str):
     
 
     try:
-        execute_schema(connection)
+        
         # El orden importa: primero datos maestros y relaciones; despues clasificacion
         # y partidos, que dependen de competicion, temporada y equipos.
         import_competitions(connection)
@@ -48,13 +51,13 @@ def sync_competition_data(competition_code: str):
     finally:
         connection.close()
 
-def sync_competitions(competition_codes: list[str] | None = None, connection=None):
+def sync_competitions(competition_codes: list[str] | None = None):
     """Sincroniza varias competiciones de forma secuencial."""
 
     codes = competition_codes or DEFAULT_COMPETITIONS
 
     for competition_code in codes:
-        sync_competition_data(competition_code, connection)
+        sync_competition_data(competition_code)
 
 
 def import_competitions():

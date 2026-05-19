@@ -62,26 +62,37 @@ def test_connection():
         print("Detalle del error: ", error)
 
 
-def execute_schema():
-    """Lee schema.sql y ejecuta su contenido para crear las tablas."""
+def execute_schema(connection=None):
+    """
+        Lee schema.sql y ejecuta su contenido para crear las tablas.
+        Puede usar una conexión existente o crear una nueva
+    """
+    close_connection = False
 
-    try:
+    if connection is None:
         connection = get_connection()
-        try:
-            cursor = connection.cursor()
-            try:
-                with SCHEMA_PATH.open("r", encoding="utf-8") as sql_file:
-                    sql_script = sql_file.read()
+        close_connection = True
+    
+    cursor = connection.cursor()
 
-                cursor.execute(sql_script)
-                connection.commit()
+    
+    try:
+        with SCHEMA_PATH.open("r", encoding="utf-8") as sql_file:
+                sql_script = sql_file.read()
 
-                print("Tablas creadas correctamente desde el archivo schema.sql")
-            finally:
-                cursor.close()
-        finally:
-            connection.close()
+        cursor.execute(sql_script)
+
+        if close_connection:
+            connection.commit()
+
+        print("Tablas creadas correctamente desde el archivo schema.sql")
 
     except Exception as error:
         print("Error al ejecutar schema.sql")
         print("Detalle del error: ", error)
+        raise error
+                
+    finally:
+        cursor.close()
+        if close_connection:
+            connection.close()
