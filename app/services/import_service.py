@@ -12,6 +12,7 @@ from app.database.queries import (
     insert_sync_run,
     insert_team,
 )
+from app.database.connection import get_connection
 
 
 def sync_competition_data(competition_code: str):
@@ -19,28 +20,33 @@ def sync_competition_data(competition_code: str):
 
     competition_code = competition_code.upper()
     started_at = datetime.now()
-
+    connection = get_connection()
     # Aseguramos el esquema antes de importar para que las apps puedan actualizar
     # desde la API incluso despues de anadir tablas nuevas al proyecto.
-    execute_schema()
+    
 
     try:
+        execute_schema(connection)
         # El orden importa: primero datos maestros y relaciones; despues clasificacion
         # y partidos, que dependen de competicion, temporada y equipos.
-        import_competitions()
-        import_teams_by_competition(competition_code)
-        import_current_season_by_competition(competition_code)
-        import_standings_by_competition(competition_code)
-        import_matches_by_competition(competition_code)
+        import_competitions(connection)
+        import_teams_by_competition(competition_code, connection)
+        import_current_season_by_competition(competition_code, connection)
+        import_standings_by_competition(competition_code, connection)
+        import_matches_by_competition(competition_code, connection)
 
-        insert_sync_run(competition_code, started_at, "SUCCESS", "Sincronizacion completada")
+        insert_sync_run(competition_code, started_at, "SUCCESS", "Sincronizacion completada", connection)
         print(f"Sincronizacion de {competition_code} completada")
+
+        connection.commit()
     except Exception as error:
         # Guardamos tambien los fallos para que web y desktop puedan mostrar
         # cuando fue el ultimo intento y por que no actualizo correctamente.
-        insert_sync_run(competition_code, started_at, "FAILED", str(error))
+        #insert_sync_run(competition_code, started_at, "FAILED", str(error))
+        connection.rollback()
         raise
-
+    finally:
+        connection.close()
 
 def sync_competitions(competition_codes: list[str] | None = None):
     """Sincroniza varias competiciones de forma secuencial."""
@@ -150,7 +156,7 @@ def import_standings_by_competition(competition_code: str):
     print(f"Clasificacion de {competition_code} importada correctamente")
 
 
-def import_matches_by_competition(competition_code: str):
+def import_matches_by_competition(competition_code: str, connection=None):
     """Trae los partidos de una competicion y los sincroniza."""
 
     client = FootballAPIClient()
@@ -160,6 +166,6 @@ def import_matches_by_competition(competition_code: str):
     print(f"Partidos recibidos para {competition_code}: {len(matches)}")
 
     for match in matches:
-        insert_match(match)
+        insert_match(match, connection)
 
     print(f"Partidos de {competition_code} importados correctamente")

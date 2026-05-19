@@ -288,72 +288,77 @@ def insert_standing_row(standing_row: dict, competition_api_id: int, season_api_
         conn.close()
 
 
-def insert_match(match_data: dict):
+def insert_match(match_data: dict, connection=None):
     """Inserta o actualiza un partido usando el id de la API."""
 
-    competition_api_id = match_data.get("competition", {}).get("id")
-    season_api_id = match_data.get("season", {}).get("id")
-    home_team_api_id = match_data.get("homeTeam", {}).get("id")
-    away_team_api_id = match_data.get("awayTeam", {}).get("id")
+    close_connection=False
 
-    competition_id = get_competition_db_id_by_api_id(competition_api_id)
-    season_id = get_season_db_id_by_api_id(season_api_id)
-    home_team_id = get_team_db_id_by_api_id(home_team_api_id)
-    away_team_id = get_team_db_id_by_api_id(away_team_api_id)
+    if connection is None:
+        connection = get_connection()
+        competition_api_id = match_data.get("competition", {}).get("id")
+        season_api_id = match_data.get("season", {}).get("id")
+        home_team_api_id = match_data.get("homeTeam", {}).get("id")
+        away_team_api_id = match_data.get("awayTeam", {}).get("id")
 
-    if not competition_id or not season_id or not home_team_id or not away_team_id:
-        print(f"No se puede ingresar el partido api_id={match_data.get('id')}")
-        return
+        competition_id = get_competition_db_id_by_api_id(competition_api_id, connection)
+        season_id = get_season_db_id_by_api_id(season_api_id, connection)
+        home_team_id = get_team_db_id_by_api_id(home_team_api_id, connection)
+        away_team_id = get_team_db_id_by_api_id(away_team_api_id, connection)
 
-    score = match_data.get("score", {})
-    full_time = score.get("fullTime", {})
+        if not competition_id or not season_id or not home_team_id or not away_team_id:
+            print(f"No se puede ingresar el partido api_id={match_data.get('id')}")
+            return
 
-    query = """
-        INSERT INTO matches (
-            api_id, competition_id, season_id, matchday, utc_date, status, home_team_id, away_team_id,
-            home_score, away_score, winner, stage, group_name, last_updated
+        score = match_data.get("score", {})
+        full_time = score.get("fullTime", {})
+
+        query = """
+            INSERT INTO matches (
+                api_id, competition_id, season_id, matchday, utc_date, status, home_team_id, away_team_id,
+                home_score, away_score, winner, stage, group_name, last_updated
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (api_id) DO UPDATE
+            SET
+                competition_id = EXCLUDED.competition_id,
+                season_id = EXCLUDED.season_id,
+                matchday = EXCLUDED.matchday,
+                utc_date = EXCLUDED.utc_date,
+                status = EXCLUDED.status,
+                home_team_id = EXCLUDED.home_team_id,
+                away_team_id = EXCLUDED.away_team_id,
+                home_score = EXCLUDED.home_score,
+                away_score = EXCLUDED.away_score,
+                winner = EXCLUDED.winner,
+                stage = EXCLUDED.stage,
+                group_name = EXCLUDED.group_name,
+                last_updated = EXCLUDED.last_updated;
+        """
+
+        values = (
+            match_data.get("id"),
+            competition_id,
+            season_id,
+            match_data.get("matchday"),
+            match_data.get("utcDate"),
+            match_data.get("status"),
+            home_team_id,
+            away_team_id,
+            full_time.get("home"),
+            full_time.get("away"),
+            match_data.get("winner"),
+            match_data.get("stage"),
+            match_data.get("group"),
+            match_data.get("lastUpdated"),
         )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        ON CONFLICT (api_id) DO UPDATE
-        SET
-            competition_id = EXCLUDED.competition_id,
-            season_id = EXCLUDED.season_id,
-            matchday = EXCLUDED.matchday,
-            utc_date = EXCLUDED.utc_date,
-            status = EXCLUDED.status,
-            home_team_id = EXCLUDED.home_team_id,
-            away_team_id = EXCLUDED.away_team_id,
-            home_score = EXCLUDED.home_score,
-            away_score = EXCLUDED.away_score,
-            winner = EXCLUDED.winner,
-            stage = EXCLUDED.stage,
-            group_name = EXCLUDED.group_name,
-            last_updated = EXCLUDED.last_updated;
-    """
-
-    values = (
-        match_data.get("id"),
-        competition_id,
-        season_id,
-        match_data.get("matchday"),
-        match_data.get("utcDate"),
-        match_data.get("status"),
-        home_team_id,
-        away_team_id,
-        full_time.get("home"),
-        full_time.get("away"),
-        match_data.get("winner"),
-        match_data.get("stage"),
-        match_data.get("group"),
-        match_data.get("lastUpdated"),
-    )
-
-    connection = get_connection()
+        close_connection=True
+    
     cursor = connection.cursor()
 
     try:
         cursor.execute(query, values)
-        connection.commit()
+        if close_connection:
+            connection.commit()
     finally:
         cursor.close()
         connection.close()

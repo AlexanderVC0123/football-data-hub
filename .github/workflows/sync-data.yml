@@ -2,7 +2,7 @@ name: Sync football data
 
 on:
   schedule:
-    - cron: "0 */6 * * *"
+    - cron: "0 3 * * *"
   workflow_dispatch:
     inputs:
       competitions:
@@ -49,5 +49,40 @@ jobs:
       - name: Sync data
         shell: bash
         run: |
-          echo "Sycing competition ${{matrix.competition}}"
+          echo "Syncing competition ${{matrix.competition}}"
           python run.py --competitions ${{matrix.competition}}
+
+  sync-manual:
+    if: ${{github.event_name == 'workflow_dispatch' && github.event.inputs.competitions != ''}}
+    runs-on: ubuntu-latest
+
+    env:
+      APP_ENV: prodcution
+      ENABLE_MANUAL_SYNC: "false"
+      DB_NAME: ${{ secrets.DB_NAME }}
+      DB_USER: ${{ secrets.DB_USER }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      DB_HOST: ${{ secrets.DB_HOST }}
+      DB_PORT: ${{ secrets.DB_PORT }}
+      FOOTBALL_API_URL: ${{ secrets.FOOTBALL_API_URL }}
+      FOOTBALL_API_KEY: ${{ secrets.FOOTBALL_API_KEY }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+      
+      - name: Install dependencies
+        run: |
+          pyhton -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+      
+      - name: Syncselected competitions
+        run: |
+          echo "Syncing competitions: ${{github.event.inputs.competitions}}"
+          python run.py --competitions ${{ github.event.inputs.competitions }}
