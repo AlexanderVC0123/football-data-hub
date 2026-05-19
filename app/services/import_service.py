@@ -48,13 +48,13 @@ def sync_competition_data(competition_code: str):
     finally:
         connection.close()
 
-def sync_competitions(competition_codes: list[str] | None = None):
+def sync_competitions(competition_codes: list[str] | None = None, connection=None):
     """Sincroniza varias competiciones de forma secuencial."""
 
     codes = competition_codes or DEFAULT_COMPETITIONS
 
     for competition_code in codes:
-        sync_competition_data(competition_code)
+        sync_competition_data(competition_code, connection)
 
 
 def import_competitions():
