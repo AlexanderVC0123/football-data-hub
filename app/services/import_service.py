@@ -60,7 +60,7 @@ def sync_competitions(competition_codes: list[str] | None = None):
         sync_competition_data(competition_code)
 
 
-def import_competitions():
+def import_competitions(connection=None):
     """Trae competiciones desde la API y las sincroniza en PostgreSQL."""
 
     client = FootballAPIClient()
@@ -75,7 +75,7 @@ def import_competitions():
     print("Competiciones importadas correctamente")
 
 
-def import_teams_by_competition(competition_code: str):
+def import_teams_by_competition(competition_code: str, connection=None):
     """Trae equipos de una competicion y guarda la relacion competicion-equipo."""
 
     client = FootballAPIClient()
@@ -106,7 +106,7 @@ def import_teams_by_competition(competition_code: str):
     print(f"Equipos de la competicion {competition_code} importados correctamente")
 
 
-def import_current_season_by_competition(competition_code: str):
+def import_current_season_by_competition(competition_code: str, connection=None):
     """Obtiene la temporada actual desde standings y la sincroniza."""
 
     client = FootballAPIClient()
@@ -124,7 +124,7 @@ def import_current_season_by_competition(competition_code: str):
     print(f"Temporada actual de {competition_code} importada correctamente")
 
 
-def import_standings_by_competition(competition_code: str):
+def import_standings_by_competition(competition_code: str, connection=None):
     """Trae la clasificacion total de una competicion y la sincroniza."""
 
     client = FootballAPIClient()
