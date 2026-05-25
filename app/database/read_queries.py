@@ -20,7 +20,7 @@ def load_competitions():
 
 
 def load_last_sync_run(competition_code: str):
-    """Carga el ultimo intento de sincronizacion de una competicion."""
+    """Carga el ultimo intento de sincronización de una competicion."""
 
     query = """
         SELECT competition_code, started_at, finished_at, status, message
@@ -38,7 +38,7 @@ def load_last_sync_run(competition_code: str):
 
 
 def load_standings(competition_id: int | None = None):
-    """Carga la clasificacion, opcionalmente filtrada por competicion."""
+    """Carga la clasificación, opcionalmente filtrada por competicion."""
 
     query = """
         SELECT

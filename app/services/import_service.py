@@ -25,26 +25,26 @@ def sync_competition_data(competition_code: str):
     started_at = datetime.now()
     connection = get_connection()
     # Aseguramos el esquema antes de importar para que las apps puedan actualizar
-    # desde la API incluso despues de anadir tablas nuevas al proyecto.
+    # desde la API incluso después de añadir tablas nuevas al proyecto.
     
 
     try:
         
-        # El orden importa: primero datos maestros y relaciones; despues clasificacion
-        # y partidos, que dependen de competicion, temporada y equipos.
+        # El orden importa: primero datos maestros y relaciones; despues clasificación
+        # y partidos, que dependen de competición, temporada y equipos.
         import_competitions(connection)
         import_teams_by_competition(competition_code, connection)
         import_current_season_by_competition(competition_code, connection)
         import_standings_by_competition(competition_code, connection)
         import_matches_by_competition(competition_code, connection)
 
-        insert_sync_run(competition_code, started_at, "SUCCESS", "Sincronizacion completada", connection)
-        print(f"Sincronizacion de {competition_code} completada")
+        insert_sync_run(competition_code, started_at, "SUCCESS", "Sincronización completada", connection)
+        print(f"Sincronización de {competition_code} completada")
 
         connection.commit()
     except Exception as error:
-        # Guardamos tambien los fallos para que web y desktop puedan mostrar
-        # cuando fue el ultimo intento y por que no actualizo correctamente.
+        # Guardamos también los fallos para que web y desktop puedan mostrar
+        # cuando fue el último intento y por que no actualizó correctamente.
         #insert_sync_run(competition_code, started_at, "FAILED", str(error))
         connection.rollback()
         raise
@@ -76,7 +76,7 @@ def import_competitions(connection=None):
 
 
 def import_teams_by_competition(competition_code: str, connection=None):
-    """Trae equipos de una competicion y guarda la relacion competicion-equipo."""
+    """Trae equipos de una competición y guarda la relación competición-equipo."""
 
     client = FootballAPIClient()
     data = client.get_teams_by_competition(competition_code)
@@ -91,7 +91,7 @@ def import_teams_by_competition(competition_code: str, connection=None):
         insert_competition(competition)
 
     if competition and season:
-        # La relacion competition_teams necesita que la temporada exista antes.
+        # La relación competition_teams necesita que la temporada exista antes.
         insert_season(season, competition.get("id"))
 
     for team in teams:
@@ -103,7 +103,7 @@ def import_teams_by_competition(competition_code: str, connection=None):
                 season.get("id"),
             )
 
-    print(f"Equipos de la competicion {competition_code} importados correctamente")
+    print(f"Equipos de la competición {competition_code} importados correctamente")
 
 
 def import_current_season_by_competition(competition_code: str, connection=None):
@@ -125,7 +125,7 @@ def import_current_season_by_competition(competition_code: str, connection=None)
 
 
 def import_standings_by_competition(competition_code: str, connection=None):
-    """Trae la clasificacion total de una competicion y la sincroniza."""
+    """Trae la clasificación total de una competicion y la sincroniza."""
 
     client = FootballAPIClient()
     data = client.get_standing_by_competition(competition_code)
@@ -156,7 +156,7 @@ def import_standings_by_competition(competition_code: str, connection=None):
             season.get("id"),
         )
 
-    print(f"Clasificacion de {competition_code} importada correctamente")
+    print(f"Clasificación de {competition_code} importada correctamente")
 
 
 def import_matches_by_competition(competition_code: str, connection=None):

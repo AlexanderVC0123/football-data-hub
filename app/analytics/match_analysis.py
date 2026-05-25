@@ -97,7 +97,7 @@ def summarize_team(
 
     standing_rows = standings_df[standings_df["team"].eq(team_name)]
     if standing_rows.empty:
-        raise ValueError(f"No hay datos de clasificacion para el equipo: {team_name}")
+        raise ValueError(f"No hay datos de clasificación para el equipo: {team_name}")
 
     row = standing_rows.iloc[0]
     played_games = max(_safe_float(row["played_games"], 0.0), 1.0)
@@ -169,7 +169,7 @@ def _estimate_expected_goals(home: dict, away: dict, standings_df: pd.DataFrame)
     league_avg = _league_goals_per_team_match(standings_df)
 
     # Mezclamos rendimiento de temporada, forma reciente y media de liga para evitar
-    # que una muestra pequena de partidos recientes domine toda la prediccion.
+    # que una muestra pequena de partidos recientes domine toda la predicción.
     home_attack = (
         0.55 * home["goals_for_per_game"]
         + 0.25 * home["recent_goals_for"]

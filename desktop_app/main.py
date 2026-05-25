@@ -103,15 +103,15 @@ class MainApp(ctk.CTk):
 
     def get_last_sync_text(self):
         if not self.selected_competition_code:
-            return "Ultima actualizacion: sin competicion"
+            return "Última actualización: sin competición"
 
         sync_df = load_last_sync_run(self.selected_competition_code)
         if sync_df.empty:
-            return "Ultima actualizacion: sin registros"
+            return "Última actualización: sin registros"
 
         last_sync = sync_df.iloc[0]
         status = "correcta" if last_sync["status"] == "SUCCESS" else "fallida"
-        return f"Ultima actualizacion: {last_sync['finished_at']} ({status})"
+        return f"Última actualización: {last_sync['finished_at']} ({status})"
 
     def sync_selected_competition(self):
         if not self.selected_competition_code:
@@ -175,9 +175,9 @@ class MainApp(ctk.CTk):
 
         buttons = [
             ("Dashboard", self.show_dashboard),
-            ("Clasificacion", self.show_standings),
+            ("Clasificación", self.show_standings),
             ("Partidos", self.show_matches),
-            ("Prediccion", self.show_prediction),
+            ("Predicción", self.show_prediction),
         ]
 
         for text, command in buttons:
@@ -277,8 +277,8 @@ class MainApp(ctk.CTk):
 
         if self.standings_df.empty:
             self.show_empty_state(
-                "Datos en preparacion",
-                "La competicion seleccionada todavia no tiene datos analiticos cargados. Cuando termine la sincronizacion, este panel se completara automaticamente.",
+                "Datos en preparación",
+                "La competición seleccionada todavia no tiene datos analíticos cargados. Cuando termine la sincronización, este panel se completará automáticamente.",
             )
             return
 
@@ -328,7 +328,7 @@ class MainApp(ctk.CTk):
 
         ctk.CTkLabel(
             table_area,
-            text="Clasificacion completa",
+            text="Clasificación completa",
             font=ctk.CTkFont(size=16, weight="bold"),
             anchor="w",
         ).pack(fill="x", padx=24, pady=(12, 0))
@@ -389,12 +389,12 @@ class MainApp(ctk.CTk):
 
     def show_standings(self):
         self.clear_main_frame()
-        self.add_title("Clasificacion", "Tabla actual ordenada por posicion.")
+        self.add_title("Clasificación", "Tabla actual ordenada por posicion.")
 
         if self.standings_df.empty:
             self.show_empty_state(
-                "Clasificacion no disponible",
-                "No hay tabla de posiciones para esta competicion. Se mostrara aqui en cuanto exista una sincronizacion correcta.",
+                "Clasificación no disponible",
+                "No hay tabla de posiciones para esta competición. Se mostrara aqui en cuanto exista una sincronización correcta.",
             )
             return
 
@@ -439,7 +439,7 @@ class MainApp(ctk.CTk):
         if not self.teams_list:
             self.show_empty_state(
                 "Equipos no disponibles",
-                "Todavia no hay equipos asociados a esta competicion. Revisa el estado de sincronizacion o espera al proximo proceso automatico.",
+                "Todavia no hay equipos asociados a esta competición. Revisa el estado de sincronización o espera al proximo proceso automatico.",
             )
             return
 
@@ -499,14 +499,14 @@ class MainApp(ctk.CTk):
     def show_prediction(self):
         self.clear_main_frame()
         self.add_title(
-            "Prediccion",
-            "Comparacion de equipos y estimacion Poisson basada en clasificacion, goles y forma.",
+            "Predicción",
+            "Comparacion de equipos y estimacion Poisson basada en clasificación, goles y forma.",
         )
 
         if len(self.teams_list) < 2:
             self.show_empty_state(
-                "Prediccion no disponible",
-                "Se necesitan al menos dos equipos asociados a la competicion para calcular un partido.",
+                "Predicción no disponible",
+                "Se necesitan al menos dos equipos asociados a la competición para calcular un partido.",
             )
             return
 

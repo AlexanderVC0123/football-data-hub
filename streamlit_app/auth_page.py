@@ -7,7 +7,7 @@ from app.auth.auth_service import login_supabase
 
 def inicializar_sesion():
     """
-    Inicializa las variables de sesion que usa Streamlit mientras la app esta abierta.
+    Inicializa las variables de sesión que usa Streamlit mientras la app está abierta.
     """
 
     if "logueado" not in st.session_state:
@@ -34,7 +34,7 @@ def mostrar_login_header():
             password = st.text_input(
                 "Contraseña",
                 type="password",
-                placeholder="Contrasena",
+                placeholder="Contraseña",
                 label_visibility="collapsed",
             )
 
@@ -60,7 +60,7 @@ def mostrar_login_header():
 
 def mostrar_usuario_header():
     """
-    Muestra el usuario conectado dentro de un popover y el boton de cerrar sesión.
+    Muestra el usuario conectado dentro de un popover y el botón de cerrar sesión.
     """
 
     email = ""
@@ -74,20 +74,20 @@ def mostrar_usuario_header():
         st.markdown(
             f"""
             <div class="fdh-user-box">
-                <h3>Sesion iniciada</h3>
+                <h3>Sesión iniciada</h3>
                 <div class="fdh-user-email">{email}</div>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
-        if st.button("Cerrar sesion", key="logout_button", use_container_width=True):
+        if st.button("Cerrar sesión", key="logout_button", use_container_width=True):
             cerrar_sesion()
 
 
 def cerrar_sesion():
     """
-    Cierra sesion y limpia el usuario guardado en memoria.
+    Cierra sesión y limpia el usuario guardado en memoria.
     """
 
     st.session_state.logueado = False

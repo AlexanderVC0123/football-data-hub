@@ -2,7 +2,7 @@ from app.database.connection import get_connection
 
 
 def insert_sync_run(competition_code: str, started_at, status: str, message: str | None = None, connection=None):
-    """Registra el resultado de una sincronizacion con la API."""
+    """Registra el resultado de una sincronización con la API."""
 
     query = """
         INSERT INTO sync_runs (competition_code, started_at, finished_at, status, message)
@@ -230,7 +230,7 @@ def insert_season(season_data: dict, competition_api_id: int):
 
 
 def insert_standing_row(standing_row: dict, competition_api_id: int, season_api_id: int):
-    """Inserta o actualiza una fila de clasificacion."""
+    """Inserta o actualiza una fila de clasificación."""
 
     competition_id = get_competition_db_id_by_api_id(competition_api_id)
     season_id = get_season_db_id_by_api_id(season_api_id)

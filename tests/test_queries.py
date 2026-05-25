@@ -64,12 +64,12 @@ def test_insert_team_maps_football_api_fields(monkeypatch):
 def test_insert_match_maps_group_and_last_updated(monkeypatch):
     fake_connection = FakeConnection()
     monkeypatch.setattr(queries, "get_connection", lambda: fake_connection)
-    monkeypatch.setattr(queries, "get_competition_db_id_by_api_id", lambda api_id: 1)
-    monkeypatch.setattr(queries, "get_season_db_id_by_api_id", lambda api_id: 2)
+    monkeypatch.setattr(queries, "get_competition_db_id_by_api_id", lambda api_id, connection=None: 1)
+    monkeypatch.setattr(queries, "get_season_db_id_by_api_id", lambda api_id, connection=None: 2)
     monkeypatch.setattr(
         queries,
         "get_team_db_id_by_api_id",
-        lambda api_id: {86: 3, 81: 4}[api_id],
+        lambda api_id, connection=None: {86: 3, 81: 4}[api_id],
     )
 
     queries.insert_match(
@@ -172,9 +172,9 @@ def test_insert_competition_team_creates_relation(monkeypatch):
 def test_insert_match_does_not_insert_when_related_ids_are_missing(monkeypatch):
     fake_connection = FakeConnection()
     monkeypatch.setattr(queries, "get_connection", lambda: fake_connection)
-    monkeypatch.setattr(queries, "get_competition_db_id_by_api_id", lambda api_id: None)
-    monkeypatch.setattr(queries, "get_season_db_id_by_api_id", lambda api_id: 2)
-    monkeypatch.setattr(queries, "get_team_db_id_by_api_id", lambda api_id: 3)
+    monkeypatch.setattr(queries, "get_competition_db_id_by_api_id", lambda api_id, connection=None: None)
+    monkeypatch.setattr(queries, "get_season_db_id_by_api_id", lambda api_id, connection=None: 2)
+    monkeypatch.setattr(queries, "get_team_db_id_by_api_id", lambda api_id,connection=None: 3)
 
     queries.insert_match({"id": 1001})
 

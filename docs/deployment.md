@@ -25,7 +25,7 @@ FOOTBALL_API_URL=https://api.football-data.org/v4
 FOOTBALL_API_KEY=
 ```
 
-## Sincronizacion Automatica
+## Sincronización Automatica
 
 La web no deberia depender de pulsar un boton manual en produccion.
 
@@ -41,7 +41,7 @@ Comando recomendado:
 python run.py --all
 ```
 
-El repositorio ya incluye `.github/workflows/sync-data.yml`, que ejecuta la sincronizacion cada 6 horas.
+El repositorio ya incluye `.github/workflows/sync-data.yml`, que ejecuta la sincronización cada 6 horas.
 
 Configura estos secrets en GitHub:
 
@@ -79,5 +79,5 @@ Luego se puede crear un instalador con Inno Setup.
 
 - Una unica base PostgreSQL remota.
 - Web y desktop leyendo la misma base.
-- Sincronizacion ejecutada por una tarea separada.
+- Sincronización ejecutada por una tarea separada.
 - `ENABLE_MANUAL_SYNC=false` para usuarios finales.

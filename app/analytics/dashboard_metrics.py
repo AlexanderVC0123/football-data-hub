@@ -8,14 +8,26 @@ def _format_match(row: pd.Series) -> str:
 
 
 def calculate_competition_kpis(standings_df: pd.DataFrame, matches_df: pd.DataFrame) -> dict:
-    """Calcula indicadores principales para resumir una competicion."""
+    """Calcula indicadores principales para resumir una competición.
 
-    leader = standings_df.sort_values("position").iloc[0]
-    top_attack = standings_df.sort_values("goals_for", ascending=False).iloc[0]
-    best_defense = standings_df.sort_values("goals_against", ascending=True).iloc[0]
+    Cada KPI devuelve label, value, detail y opcionalmente delta_numeric (con signo)
+    cuando una comparación tiene sentido para colorear verde/rojo en la UI.
+    """
 
-    # Solo usamos partidos finalizados para medias de goles, porque los pendientes
-    # no tienen marcador definitivo y distorsionarian el analisis.
+    standings_sorted = standings_df.sort_values("position").reset_index(drop=True)
+    leader = standings_sorted.iloc[0]
+    second = standings_sorted.iloc[1] if len(standings_sorted) > 1 else None
+
+    # Goleador y mejor defensa: comparamos con el 2º del ranking correspondiente
+    attack_sorted = standings_df.sort_values("goals_for", ascending=False).reset_index(drop=True)
+    top_attack = attack_sorted.iloc[0]
+    second_attack = attack_sorted.iloc[1] if len(attack_sorted) > 1 else None
+
+    defense_sorted = standings_df.sort_values("goals_against", ascending=True).reset_index(drop=True)
+    best_defense = defense_sorted.iloc[0]
+    second_defense = defense_sorted.iloc[1] if len(defense_sorted) > 1 else None
+
+    # Solo usamos partidos finalizados para medias de goles
     finished_matches = matches_df[matches_df["status"].eq("FINISHED")].copy()
     finished_matches = finished_matches[
         finished_matches["home_score"].notna() & finished_matches["away_score"].notna()
@@ -44,51 +56,89 @@ def calculate_competition_kpis(standings_df: pd.DataFrame, matches_df: pd.DataFr
         pending_matches["utc_date"] = pd.to_datetime(pending_matches["utc_date"], errors="coerce")
         next_row = pending_matches.sort_values("utc_date").iloc[0]
         next_match = _format_match(next_row)
-        next_match_detail = str(next_row["utc_date"]) if pd.notna(next_row["utc_date"]) else ""
+        if pd.notna(next_row["utc_date"]):
+            next_match_detail = next_row["utc_date"].strftime("%d/%m/%Y")
 
     total_matches = len(matches_df)
     finished_count = len(finished_matches)
     completion_rate = (finished_count / total_matches * 100) if total_matches else 0.0
 
+    # === Cálculo de deltas reales ===
+    # Líder: ventaja en puntos sobre el 2º
+    leader_delta = None
+    leader_detail = f"{int(leader['points'])} puntos"
+    if second is not None:
+        gap = int(leader["points"]) - int(second["points"])
+        if gap > 0:
+            leader_delta = gap
+            leader_detail = f"{int(leader['points'])} pts · ventaja sobre el 2º"
+
+    # Goleador: diferencia de goles sobre el 2º atacante
+    attack_delta = None
+    attack_detail = f"{int(top_attack['goals_for'])} goles"
+    if second_attack is not None:
+        gap = int(top_attack["goals_for"]) - int(second_attack["goals_for"])
+        if gap > 0:
+            attack_delta = gap
+            attack_detail = f"{int(top_attack['goals_for'])} goles · ventaja sobre el 2º"
+
+    # Mejor defensa: cuántos goles menos encaja que el 2º defensor (delta NEGATIVO en goles
+    # es BUENO defensivamente, pero queremos que Streamlit lo pinte verde → invertimos signo)
+    defense_delta = None
+    defense_detail = f"{int(best_defense['goals_against'])} goles encajados"
+    if second_defense is not None:
+        gap = int(second_defense["goals_against"]) - int(best_defense["goals_against"])
+        if gap > 0:
+            defense_delta = gap  # positivo = mejor que el 2º
+            defense_detail = f"{int(best_defense['goals_against'])} encajados · diferencia con el 2º"
+
     return {
         "leader": {
-            "label": "Lider de la competicion",
+            "label": "Líder de la competición",
             "value": leader["team"],
-            "detail": f"{int(leader['points'])} puntos",
+            "detail": leader_detail,
+            "delta_numeric": leader_delta,
         },
         "top_attack": {
-            "label": "Equipo mas goleador",
+            "label": "Máximo goleador",
             "value": top_attack["team"],
-            "detail": f"{int(top_attack['goals_for'])} goles",
+            "detail": attack_detail,
+            "delta_numeric": attack_delta,
         },
         "best_defense": {
             "label": "Mejor defensa",
             "value": best_defense["team"],
-            "detail": f"{int(best_defense['goals_against'])} goles encajados",
+            "detail": defense_detail,
+            "delta_numeric": defense_delta,
         },
         "goals_per_match": {
             "label": "Promedio de goles",
             "value": f"{goals_per_match:.2f}",
             "detail": "por partido finalizado",
+            "delta_numeric": None,
         },
         "highest_scoring_match": {
-            "label": "Partido con mas goles",
+            "label": "Partido con más goles",
             "value": highest_scoring_match,
             "detail": highest_scoring_detail,
+            "delta_numeric": None,
         },
         "next_match": {
-            "label": "Proximo partido",
+            "label": "Próximo partido",
             "value": next_match,
             "detail": next_match_detail,
+            "delta_numeric": None,
         },
         "completion_rate": {
             "label": "Partidos finalizados",
             "value": f"{finished_count}/{total_matches}",
             "detail": f"{completion_rate:.1f}% completado",
+            "delta_numeric": None,
         },
         "pending_matches": {
             "label": "Partidos pendientes",
             "value": str(len(pending_matches)),
             "detail": "por disputar o actualizar",
+            "delta_numeric": None,
         },
     }

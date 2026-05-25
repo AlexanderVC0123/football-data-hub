@@ -7,14 +7,14 @@ Football Data Hub es una plataforma de análisis futbolístico con app web y app
 Fase actual: MVP tecnico avanzado.
 
 Incluye:
-- sincronizacion desde football-data.org;
+- sincronización desde football-data.org;
 - PostgreSQL como base central;
 - web con Streamlit;
 - app desktop con CustomTkinter;
-- filtros por competicion;
+- filtros por competición;
 - historico de sincronizaciones;
-- relacion competicion-equipo-temporada;
-- prediccion de partidos con Poisson;
+- relacion competición-equipo-temporada;
+- predicción de partidos con Poisson;
 - tests automaticos con pytest.
 
 ## Tecnologias
@@ -33,10 +33,10 @@ Incluye:
 
 ```text
 app/
-  analytics/        Motor de analisis y prediccion
+  analytics/        Motor de analisis y predicción
   api/              Cliente de football-data.org
   database/         Conexion, queries y lecturas
-  services/         Sincronizacion API -> PostgreSQL
+  services/         sincronización API -> PostgreSQL
 
 desktop_app/        Aplicacion de escritorio
 streamlit_app/      Dashboard web
@@ -96,7 +96,7 @@ ENABLE_MANUAL_SYNC=false
 
 ## Base De Datos
 
-El esquema se crea automaticamente al arrancar la web, la app desktop o la sincronizacion.
+El esquema se crea automaticamente al arrancar la web, la app desktop o la sincronización.
 
 Tambien puedes ejecutar:
 
@@ -113,9 +113,9 @@ Las tablas principales son:
 - `matches`
 - `sync_runs`
 
-## Sincronizacion De Datos
+## Sincronización De Datos
 
-Sincronizar una competicion:
+Sincronizar una competición:
 
 ```bash
 venv\Scripts\python.exe run.py --competition PD
@@ -139,7 +139,7 @@ Competiciones por defecto:
 PD, PL, SA, BL1, FL1
 ```
 
-Cada sincronizacion queda registrada en `sync_runs` con estado `SUCCESS` o `FAILED`.
+Cada sincronización queda registrada en `sync_runs` con estado `SUCCESS` o `FAILED`.
 
 ## Ejecutar La Web
 
@@ -184,13 +184,13 @@ FOOTBALL_API_URL
 FOOTBALL_API_KEY
 ```
 
-La sincronizacion programada ejecuta:
+La sincronización programada ejecuta:
 
 ```bash
 python run.py --all
 ```
 
-Desde GitHub Actions tambien puedes lanzar una sincronizacion manual indicando competiciones:
+Desde GitHub Actions tambien puedes lanzar una sincronización manual indicando competiciones:
 
 ```text
 PD PL SA
@@ -210,14 +210,14 @@ Base de datos recomendada:
 - Railway PostgreSQL;
 - Render PostgreSQL.
 
-En despliegue, la web deberia conectarse a una base PostgreSQL remota y no mostrar controles manuales de sincronizacion:
+En despliegue, la web deberia conectarse a una base PostgreSQL remota y no mostrar controles manuales de sincronización:
 
 ```env
 APP_ENV=production
 ENABLE_MANUAL_SYNC=false
 ```
 
-La sincronizacion de datos puede ejecutarse con:
+La sincronización de datos puede ejecutarse con:
 - GitHub Actions programado;
 - cron en servidor;
 - tarea programada de Windows;
@@ -237,6 +237,6 @@ Despues se puede crear un instalador con Inno Setup.
 
 - Mejorar la UI web con vistas por equipo y partido.
 - Preparar despliegue con base de datos remota.
-- Crear workflow automatico de sincronizacion.
+- Crear workflow automatico de sincronización.
 - Empaquetar desktop como `.exe`.
-- Mejorar prediccion con local/visitante, forma reciente avanzada y mercados como over/under o ambos marcan.
+- Mejorar predicción con local/visitante, forma reciente avanzada y mercados como over/under o ambos marcan.
