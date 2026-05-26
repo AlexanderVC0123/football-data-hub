@@ -1,6 +1,7 @@
 import os
 import sys
 import base64
+import unicodedata
 
 import pandas as pd
 import plotly.express as px
@@ -1402,6 +1403,12 @@ def render_brand():
         unsafe_allow_html=True
     )
 
+def slugify(text: str) -> str:
+    """Convierte texto a una key segura para CSS/HTML (sin tildes, sin espacios)."""
+    nfkd = unicodedata.normalize("NFKD", text)
+    sin_tildes = "".join(c for c in nfkd if not unicodedata.combining(c))
+    return sin_tildes.replace(" ", "_")
+
 def cambiar_pagina(nombre_pagina):
     st.session_state.pagina_actual = nombre_pagina
 
@@ -1421,9 +1428,10 @@ def render_navigation():
 
     for col, pagina in zip(cols, paginas):
         with col:
-            if st.button(pagina, key=f"nav_{pagina}", use_container_width=True):
+            key=f"nav_{slugify(pagina)}"
+            if st.button(pagina, key=key, use_container_width=True):
                 cambiar_pagina(pagina)
-        
+                
     return st.session_state.pagina_actual
 
 def render_topbar():
@@ -1445,6 +1453,22 @@ def render_topbar():
                 mostrar_usuario_header()
             else:
                 mostrar_login_header()
+
+    active_key = f"nav_{slugify(selected_page)}"
+    #print(f"---------- nav_{selected_page} ----------")
+    st.markdown(
+        f"""
+        <style>
+        .st-key-{active_key} button {{
+            border-color: #38bdf8 !important;
+            color: #ffffff !important;
+            background: #172033 !important;
+            box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.2);
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
     return selected_page
 
 def humanize_time_ago(timestamp):
@@ -1793,8 +1817,8 @@ def render_standings_table_html(standings_df: pd.DataFrame, matches_df: pd.DataF
         recent_form = get_team_recent_form(row["team"], matches_df, n=5)
         form_html = form_squares_html(recent_form, max_n=5)
 
-        print(f" recent_form n=5 = {recent_form}")
-        print(f" form_html max_n=5 = {form_html}")
+        #print(f" recent_form n=5 = {recent_form}")
+        #print(f" form_html max_n=5 = {form_html}")
 
         rows_html += (
             f'<tr class="{zone_class}">'
@@ -1916,7 +1940,6 @@ def probability_chart(prediction: dict):
         margin=dict(l=20, r=20, t=50, b=20),
     )
     return configure_plot(fig, height=360)
-
 
 selected_page = render_topbar()
 
