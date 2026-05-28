@@ -14,8 +14,28 @@ load_dotenv(ENV_PATH)
 REQUIRED_DB_ENV_VARS = ("DB_NAME", "DB_USER", "DB_PASSWORD", "DB_HOST", "DB_PORT")
 
 
-def get_required_env(var_name: str) -> str:
+def get_env_var(var_name: str) -> str | None:
+    """
+    Se obtiene una variable de configuracion.
+    Prioridad: variables de entorno (.env local) y si no existe,
+    secrets de streamlit (st.secrets) en despliegue cloud
+    """
     value = os.getenv(var_name)
+    if value:
+        return value
+    
+    #Fallback a st.secrets (para streamlit community cloud)
+    try:
+        import streamlit as st
+        if var_name in st.secrets:
+            return str(st.secrets[var_name])
+    except Exception:
+        pass
+
+    return None
+
+def get_required_env(var_name: str) -> str:
+    value = get_env_var(var_name)
     if not value:
         raise ValueError(f"Falta la variable de entorno requerida: {var_name}")
     return value
@@ -24,7 +44,7 @@ def get_required_env(var_name: str) -> str:
 def get_connection():
     """Establece una conexion a PostgreSQL usando variables de entorno."""
 
-    missing_vars = [var_name for var_name in REQUIRED_DB_ENV_VARS if not os.getenv(var_name)]
+    missing_vars = [var_name for var_name in REQUIRED_DB_ENV_VARS if not get_env_var(var_name)]
     if missing_vars:
         raise ValueError(
             "Faltan variables de entorno requeridas para PostgreSQL: "
