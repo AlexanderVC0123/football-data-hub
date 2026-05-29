@@ -169,7 +169,7 @@ def _estimate_expected_goals(home: dict, away: dict, standings_df: pd.DataFrame)
     league_avg = _league_goals_per_team_match(standings_df)
 
     # Mezclamos rendimiento de temporada, forma reciente y media de liga para evitar
-    # que una muestra pequena de partidos recientes domine toda la predicción.
+    # que una muestra pequeña de partidos recientes domine toda la predicción.
     home_attack = (
         0.55 * home["goals_for_per_game"]
         + 0.25 * home["recent_goals_for"]

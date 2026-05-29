@@ -24,14 +24,8 @@ def sync_competition_data(competition_code: str):
 
     started_at = datetime.now()
     connection = get_connection()
-    # Aseguramos el esquema antes de importar para que las apps puedan actualizar
-    # desde la API incluso después de añadir tablas nuevas al proyecto.
-    
 
     try:
-        
-        # El orden importa: primero datos maestros y relaciones; despues clasificación
-        # y partidos, que dependen de competición, temporada y equipos.
         import_competitions(connection)
         import_teams_by_competition(competition_code, connection)
         import_current_season_by_competition(competition_code, connection)
@@ -45,7 +39,7 @@ def sync_competition_data(competition_code: str):
     except Exception as error:
         # Guardamos también los fallos para que web y desktop puedan mostrar
         # cuando fue el último intento y por que no actualizó correctamente.
-        #insert_sync_run(competition_code, started_at, "FAILED", str(error))
+        insert_sync_run(competition_code, started_at, "FAILED", str(error))
         connection.rollback()
         raise
     finally:

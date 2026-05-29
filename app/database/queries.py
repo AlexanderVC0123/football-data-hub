@@ -80,7 +80,6 @@ def insert_team(team_data: dict):
             address = EXCLUDED.address,
             crest_url = EXCLUDED.crest_url;
     """
-
     values = (
         team_data.get("id"),
         team_data.get("name"),

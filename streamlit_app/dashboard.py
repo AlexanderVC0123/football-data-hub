@@ -44,9 +44,8 @@ def apply_page_styles():
     st.markdown(
         """
         <style>
-        /* Quitamos padding superior excesivo de Streamlit */
         .block-container {
-            padding-top: 1.2rem;
+            padding-top: 4rem;
             padding-left: 2rem;
             padding-right: 2rem;
         }
