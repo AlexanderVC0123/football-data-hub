@@ -1,6 +1,5 @@
 import os
 import sys
-from tkinter import ttk
 
 import customtkinter as ctk
 import pandas as pd
@@ -21,8 +20,22 @@ from utils_desktop.db_utils import (
     load_standings,
     load_teams,
 )
-
+from pathlib import Path
+from tkinter import ttk
 from PIL import Image
+
+def get_asset_path(relative_path: str) -> str:
+    """
+    Devuelve la ruta absoluta a un asset (logo, imagen, etc.).
+    Funciona tanto en desarrollo como empaquetado con PyInstaller.
+    """
+    if hasattr(sys, '_MEIPASS'):
+        # Ejecutándose desde un .exe empaquetado
+        base = Path(sys._MEIPASS)
+    else:
+        # Ejecutándose como script normal: subir un nivel desde desktop_app/
+        base = Path(__file__).resolve().parent.parent
+    return str(base / relative_path)
 
 
 # === PALETA DE COLORES (alineada con la web) ===
@@ -353,7 +366,7 @@ class MainApp(ctk.CTk):
 
         ctk.CTkLabel(
             header,
-            image=ctk.CTkImage(dark_image=Image.open("assets/branding/fdh_logo_web_512.webp"), size=(150, 150)),
+            image=ctk.CTkImage(dark_image=Image.open(get_asset_path("assets/branding/fdh_logo_web_512.webp")), size=(150, 150)),
             text=""
         ).pack(fill="x")
 

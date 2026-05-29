@@ -1,13 +1,26 @@
 import os
-from pathlib import Path
-
+import sys
 import psycopg2
+
+from pathlib import Path
 from dotenv import load_dotenv
+
+def resource_path(relative_path: str) -> Path:
+    """
+    Devuelve la ruta absoluta a un recurso.
+    Sirve para desarrollo (script normal) como empaquetado con PyInstaller.
+    """
+    if hasattr(sys, '_MEIPASS'):
+        #Ejecutandose desde un .exe empaquetado con PyInstaller
+        return Path(sys._MEIPASS) / relative_path
+    #Ejecutandose como script normal
+    return Path(__file__).resolve().parents[2] / relative_path
+
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-ENV_PATH = PROJECT_ROOT / ".env"
-SCHEMA_PATH = PROJECT_ROOT / "sql" / "schema.sql"
+ENV_PATH = resource_path(".env")
+SCHEMA_PATH = resource_path("sql/schema.sql")
 
 load_dotenv(ENV_PATH)
 
