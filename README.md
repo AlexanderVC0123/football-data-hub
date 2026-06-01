@@ -1,242 +1,143 @@
 # Football Data Hub
 
-Football Data Hub es una plataforma de análisis futbolístico con app web y app de escritorio. El proyecto consume datos desde una API externa, los guarda en PostgreSQL y permite explorar clasificaciones, partidos, equipos, comparativas y predicciones iniciales basadas en un modelo Poisson simple.
+> Sistema de análisis y predicción de competiciones de fútbol. Por el momento de las 5 principales ligas europeas.
 
-## Estado Del Proyecto
+Proyecto de Fin de Grado · CFGS Desarrollo de Aplicaciones Multiplataforma
+IES Ítaca · Curso 2024-2026 · 
+**Alexander Valladares Cueva**
 
-Fase actual: MVP tecnico avanzado.
+**Web desplegada**: https://fdhcenter.streamlit.app
 
-Incluye:
-- sincronización desde football-data.org;
-- PostgreSQL como base central;
-- web con Streamlit;
-- app desktop con CustomTkinter;
-- filtros por competición;
-- historico de sincronizaciones;
-- relacion competición-equipo-temporada;
-- predicción de partidos con Poisson;
-- tests automaticos con pytest.
 
-## Tecnologias
+> **Nota académica:** la autenticación es obligatoria en esta versión para
+> demostrar el sistema de login implementado con Supabase Auth. En futuras
+> versiones, la web será accesible sin login y la autenticación se reservará
+> para funcionalidades avanzadas (preferencias, estadísticas personalizadas,
+> equipos favoritos).
 
-- Python
-- PostgreSQL
-- Pandas
-- psycopg2
-- Streamlit
-- CustomTkinter
-- Plotly
-- Pytest
-- python-dotenv
+---
 
-## Estructura
+## ¿Qué es?
 
-```text
-app/
-  analytics/        Motor de analisis y predicción
-  api/              Cliente de football-data.org
-  database/         Conexion, queries y lecturas
-  services/         sincronización API -> PostgreSQL
+Una plataforma que automatiza la extracción, almacenamiento y análisis de
+datos de las cinco principales ligas europeas, con dos interfaces (web y
+escritorio) que comparten la misma lógica de negocio y un modelo de
+predicción basado en el modelo de Poisson.
 
-desktop_app/        Aplicacion de escritorio
-streamlit_app/      Dashboard web
-sql/                Esquema y consultas SQL
-tests/              Tests automaticos
-run.py              Entrada para sincronizar datos
-```
+---
 
-## Configuracion
+## Características principales
 
-1. Crea un entorno virtual:
+- Sincronización automática diaria desde la API football-data.org
+- Aplicación web con cinco pestañas analíticas (Streamlit)
+- Aplicación de escritorio instalable como ejecutable (CustomTkinter + PyInstaller)
+- Modelo de predicción Poisson con probabilidades 1X2, xG y marcadores probables
+- Autenticación de usuarios con Supabase Auth y Row-Level Security
+- CI/CD y pruebas automatizadas con GitHub Actions
 
-```bash
+---
+
+## Stack
+
+**Backend** · Python 3.12 · PostgreSQL · Supabase · pandas · scipy
+**Frontend web** · Streamlit · Plotly · CSS personalizado
+**Frontend desktop** · CustomTkinter · PyInstaller
+**Infraestructura** · GitHub Actions · Streamlit Community Cloud
+**Pruebas** · pytest 
+
+---
+
+## Instalación
+
+### Requisitos
+
+- Python 3.10 o superior
+- Git
+- Cuenta gratuita en [football-data.org](https://www.football-data.org)
+- Cuenta gratuita en [Supabase](https://supabase.com)
+
+### Pasos
+
+````bash
+# 1. Clonar el repositorio
+git clone https://github.com/AlexanderVC0123/football-data-hub.git
+cd football-data-hub
+
+# 2. Crear y activar entorno virtual
 python -m venv venv
-```
+venv\Scripts\activate           # Windows
+source venv/bin/activate        # Linux/macOS
 
-2. Activalo en Windows:
-
-```bash
-venv\Scripts\activate
-```
-
-3. Instala dependencias:
-
-```bash
+# 3. Instalar dependencias
 pip install -r requirements.txt
-```
 
-4. Crea tu archivo `.env` a partir de `.env.example`:
+# 4. Configurar credenciales
+cp .env.example .env            # Editar con tus credenciales
 
-```bash
-copy .env.example .env
-```
+# 5. Crear el esquema en la BD
+# Ejecutar el contenido de sql/schema.sql en Supabase o PostgreSQL local
 
-5. Completa tus variables:
+# 6. Sincronizar datos por primera vez
+python run.py
+````
 
-```env
-APP_ENV=development
-ENABLE_MANUAL_SYNC=true
+-----
 
-DB_NAME=football_data_hub
-DB_USER=postgres
-DB_PASSWORD=your_password
-DB_HOST=localhost
-DB_PORT=5432
+## Uso
 
-FOOTBALL_API_URL=https://api.football-data.org/v4
-FOOTBALL_API_KEY=your_api_key
-```
+### Aplicación web
 
-En produccion se recomienda:
+````bash
+streamlit run streamlit_app/dashboard.py
+````
 
-```env
-APP_ENV=production
-ENABLE_MANUAL_SYNC=false
-```
+### Aplicación de escritorio
 
-## Base De Datos
+````bash
+python desktop_app/main.py
+````
 
-El esquema se crea automaticamente al arrancar la web, la app desktop o la sincronización.
+### Generar ejecutable de escritorio
 
-Tambien puedes ejecutar:
+````bash
+pyinstaller football_data_hub.spec
+````
 
-```bash
-venv\Scripts\python.exe run.py --competition PD
-```
+El archivo `FootballDataHub.exe` se genera en `dist/`.
 
-Las tablas principales son:
-- `competitions`
-- `teams`
-- `seasons`
-- `competition_teams`
-- `standings`
-- `matches`
-- `sync_runs`
+### Usuario de prueba (web desplegada)
 
-## Sincronización De Datos
+````
+URL:        https://fdhcenter.streamlit.app
+Email:      admin@fdh.com
+Contraseña: admin
+````
 
-Sincronizar una competición:
+-----
 
-```bash
-venv\Scripts\python.exe run.py --competition PD
-```
+## Pruebas
 
-Sincronizar varias:
+````bash
+pytest -v
+````
 
-```bash
-venv\Scripts\python.exe run.py --competitions PD PL SA
-```
+15 pruebas que cubren configuración, cliente de la API, cálculo de KPIs,
+análisis de partidos y operaciones de base de datos.
 
-Sincronizar las competiciones por defecto:
+-----
 
-```bash
-venv\Scripts\python.exe run.py --all
-```
+## Documentación
 
-Competiciones por defecto:
+El proyecto cuenta con una memoria técnica completa disponible en el
+repositorio, donde se detallan arquitectura, decisiones de diseño,
+implementación, despliegue y reflexión final.
 
-```text
-PD, PL, SA, BL1, FL1
-```
+-----
 
-Cada sincronización queda registrada en `sync_runs` con estado `SUCCESS` o `FAILED`.
+## Autor
 
-## Ejecutar La Web
+**Alexander Valladares Cueva** · [@AlexanderVC0123](https://github.com/AlexanderVC0123)
 
-```bash
-venv\Scripts\python.exe -m streamlit run streamlit_app/dashboard.py
-```
+Tutor: **Alejandro Fernández Burgo**
 
-URL local:
-
-```text
-http://localhost:8501
-```
-
-## Ejecutar La App Desktop
-
-```bash
-venv\Scripts\python.exe desktop_app/main.py
-```
-
-## Tests
-
-```bash
-venv\Scripts\python.exe -m pytest
-```
-
-## Automatizacion Con GitHub Actions
-
-El proyecto incluye dos workflows:
-
-- `.github/workflows/ci.yml`: ejecuta tests en push y pull request.
-- `.github/workflows/sync-data.yml`: sincroniza datos cada 6 horas y tambien permite ejecucion manual.
-
-Para que `sync-data.yml` funcione, configura estos secrets en GitHub:
-
-```text
-DB_NAME
-DB_USER
-DB_PASSWORD
-DB_HOST
-DB_PORT
-FOOTBALL_API_URL
-FOOTBALL_API_KEY
-```
-
-La sincronización programada ejecuta:
-
-```bash
-python run.py --all
-```
-
-Desde GitHub Actions tambien puedes lanzar una sincronización manual indicando competiciones:
-
-```text
-PD PL SA
-```
-
-## Despliegue Web
-
-Para prototipo rapido:
-- Streamlit Community Cloud;
-- Render;
-- Railway;
-- Hugging Face Spaces.
-
-Base de datos recomendada:
-- Supabase PostgreSQL;
-- Neon;
-- Railway PostgreSQL;
-- Render PostgreSQL.
-
-En despliegue, la web deberia conectarse a una base PostgreSQL remota y no mostrar controles manuales de sincronización:
-
-```env
-APP_ENV=production
-ENABLE_MANUAL_SYNC=false
-```
-
-La sincronización de datos puede ejecutarse con:
-- GitHub Actions programado;
-- cron en servidor;
-- tarea programada de Windows;
-- worker separado.
-
-## Desktop Instalable
-
-Para prototipo se puede empaquetar con PyInstaller:
-
-```bash
-pyinstaller --onefile --windowed desktop_app/main.py
-```
-
-Despues se puede crear un instalador con Inno Setup.
-
-## Roadmap
-
-- Mejorar la UI web con vistas por equipo y partido.
-- Preparar despliegue con base de datos remota.
-- Crear workflow automatico de sincronización.
-- Empaquetar desktop como `.exe`.
-- Mejorar predicción con local/visitante, forma reciente avanzada y mercados como over/under o ambos marcan.
+IES Ítaca · Mayo 2026

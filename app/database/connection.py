@@ -16,8 +16,6 @@ def resource_path(relative_path: str) -> Path:
     #Ejecutandose como script normal
     return Path(__file__).resolve().parents[2] / relative_path
 
-
-
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 ENV_PATH = resource_path(".env")
 SCHEMA_PATH = resource_path("sql/schema.sql")
@@ -25,7 +23,6 @@ SCHEMA_PATH = resource_path("sql/schema.sql")
 load_dotenv(ENV_PATH)
 
 REQUIRED_DB_ENV_VARS = ("DB_NAME", "DB_USER", "DB_PASSWORD", "DB_HOST", "DB_PORT")
-
 
 def get_env_var(var_name: str) -> str | None:
     """
@@ -53,7 +50,6 @@ def get_required_env(var_name: str) -> str:
         raise ValueError(f"Falta la variable de entorno requerida: {var_name}")
     return value
 
-
 def get_connection():
     """Establece una conexion a PostgreSQL usando variables de entorno."""
 
@@ -71,7 +67,6 @@ def get_connection():
         host=get_required_env("DB_HOST"),
         port=int(get_required_env("DB_PORT")),
     )
-
 
 def test_connection():
     """Prueba la conexion a la base de datos e imprime el resultado."""
@@ -94,7 +89,6 @@ def test_connection():
         print("Error al conectar con PostgreSQL")
         print("Detalle del error: ", error)
 
-
 def execute_schema(connection=None):
     """
         Lee schema.sql y ejecuta su contenido para crear las tablas.
@@ -107,7 +101,6 @@ def execute_schema(connection=None):
         close_connection = True
     
     cursor = connection.cursor()
-
     
     try:
         with SCHEMA_PATH.open("r", encoding="utf-8") as sql_file:
